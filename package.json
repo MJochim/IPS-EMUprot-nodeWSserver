@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "bunyan": "^1.2.3",
+    "filewalker": "^0.1.2",
+    "ldapjs": "^0.7.1",
+    "ws": "^0.5.0"
+  },
+  "devDependencies": {},
+  "engines": {}
+}

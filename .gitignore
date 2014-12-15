@@ -1,0 +1,5 @@
+# npm stuff
+node_modules/*
+
+# certificates and keys
+certs/*
