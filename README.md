@@ -2,8 +2,8 @@
 
 
 ## Quick start
-`npm install`
-`node IPS-EMUprot-nodeWSserver.js emuDBs/ | node_modules/bunyan/bin/bunyan`
+* `npm install`
+* `node IPS-EMUprot-nodeWSserver.js emuDBs/ | node_modules/bunyan/bin/bunyan`
 
 ## Main authors
 
