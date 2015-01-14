@@ -30,7 +30,7 @@
   var log = bunyan.createLogger({
     name: "nodeEmuWS"
   });
-  log.info("Starting server...");
+  log.info("starting server...");
 
   // vars
   var path2emuDBs;
@@ -53,7 +53,8 @@
     ssl: false,
     port: 17890,
     ssl_key: 'certs/server.key',
-    ssl_cert: 'certs/server.crt'
+    ssl_cert: 'certs/server.crt',
+    ldap_address: 'ldaps://ldap.phonetik.uni-muenchen.de:636'
   };
 
   var httpServ = (cfg.ssl) ? require('https') : require('http');
@@ -89,23 +90,66 @@
     server: app
   });
 
+
+
+    //
+  function generateUUID() {
+    function rand(s) {
+      var p = (Math.random().toString(16) + '000000000').substr(2, 8);
+      return s ? '-' + p.substr(0, 4) + '-' + p.substr(4, 4) : p;
+    }
+      return rand() + rand(true) + rand(true) + rand();
+  }
+
+
+  // keep track of clients
+  var clients = [];
+
   ////////////////////////////////
   // handle ws server connections
 
   wss.on('connection', function (wsConnect) {
 
-    wsConnect.on('message', function (message) {
+    // append to clients
+    wsConnect.connectionID = generateUUID();
+    clients.push(wsConnect);
+    log.info('new client connected',
+      '; clientID:', wsConnect.connectionID,
+      '; clientIP:', wsConnect._socket.remoteAddress);
 
+
+    // close event
+    wsConnect.on('close', function (message) {
+      log.info('closing connection',
+               '; clientID:', wsConnect.connectionID,
+               '; clientIP:', 'NA on close');
+
+      // remove client
+      for(var i = 0; i < clients.length; i++) {
+        if(clients[i].connectionID === wsConnect.connectionID) {
+          clients.splice(i);
+          break;
+        }
+      }
+    });
+
+    // message event
+    wsConnect.on('message', function (message) {
       var res = fs.existsSync(path2emuDBs + wsConnect.upgradeReq.url);
 
       var mJSO = JSON.parse(message);
 
-      log.info('Request/Message type: ' + mJSO.type + '; From: ' + wsConnect._socket.remoteAddress);
+      log.info('request/message type:', mJSO.type,
+               '; clientID:', wsConnect.connectionID,
+               '; clientIP:', wsConnect._socket.remoteAddress);
 
-      if (res) {
+      if (res && wsConnect.upgradeReq.url !== '/') {
         wsConnect.path2db = path.normalize(path.join(path2emuDBs, wsConnect.upgradeReq.url));
       } else {
-        log.info('Requested DB does not exist!');
+        log.info('requested DB does not exist!',
+                 '; clientID:', wsConnect.connectionID,
+                 '; clientIP:', wsConnect._socket.remoteAddress);
+
         wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
           'status': {
@@ -115,7 +159,6 @@
         }), undefined, 0);
         return;
       }
-
 
       switch (mJSO.type) {
 
@@ -175,7 +218,7 @@
             var binddn = 'uid=' + mJSO.userName + ',ou=People,dc=phonetik,dc=uni-muenchen,dc=de';
 
             var ldapClient = ldap.createClient({
-              url: 'ldaps://ldap.phonetik.uni-muenchen.de:636',
+              url: cfg.ldap_address,
               log: log
             });
 
