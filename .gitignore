@@ -3,3 +3,4 @@ node_modules/*
 
 # certificates and keys
 certs/*
+*.DB
