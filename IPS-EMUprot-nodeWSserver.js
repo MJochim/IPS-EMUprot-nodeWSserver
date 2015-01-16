@@ -54,7 +54,9 @@
     port: 17890,
     ssl_key: 'certs/server.key',
     ssl_cert: 'certs/server.crt',
-    ldap_address: 'ldaps://ldap.phonetik.uni-muenchen.de:636'
+    use_ldap: true,
+    ldap_address: 'ldaps://ldap.phonetik.uni-muenchen.de:636',
+    sqlite_db: 'IPS_EMUprot-nodeWSserver.DB'
   };
 
   var httpServ = (cfg.ssl) ? require('https') : require('http');
@@ -165,7 +167,9 @@
         // GETPROTOCOL method
       case 'GETPROTOCOL':
 
-        log.info('Following URL path (i.e. DB) was requested: ', wsConnect.upgradeReq.url);
+        log.info('Following URL path (i.e. DB) was requested: ', wsConnect.upgradeReq.url,
+                 '; clientID:', wsConnect.connectionID,
+                 '; clientIP:', wsConnect._socket.remoteAddress);
 
         wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
@@ -393,51 +397,51 @@
         // SAVEBUNDLE method
       case 'SAVEBUNDLE':
 
-        log.info('Saving: ' + mJSO.data.annotation.name);
+        // log.info('Saving: ' + mJSO.data.annotation.name);
 
-        var path2bndl = path.normalize(path.join(wsConnect.path2db, mJSO.data.session + '_ses', mJSO.data.annotation.name + '_bndl'));
+        // var path2bndl = path.normalize(path.join(wsConnect.path2db, mJSO.data.session + '_ses', mJSO.data.annotation.name + '_bndl'));
 
-        // save annotation
-        fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2));
+        // // save annotation
+        // fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2));
 
-        // save FORMANTS track (if defined for DB)
-        var foundFormantsDef = false;
-        for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
-          console.log(wsConnect.dbConfig.ssffTrackDefinitions[i].name);
-          if (wsConnect.dbConfig.ssffTrackDefinitions[i].name === 'FORMANTS') {
-            foundFormantsDef = true;
-          }
-        }
+        // // save FORMANTS track (if defined for DB)
+        // var foundFormantsDef = false;
+        // for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
+        //   console.log(wsConnect.dbConfig.ssffTrackDefinitions[i].name);
+        //   if (wsConnect.dbConfig.ssffTrackDefinitions[i].name === 'FORMANTS') {
+        //     foundFormantsDef = true;
+        //   }
+        // }
 
-        if (foundFormantsDef) {
-          // write SSFF stored in mJSO.data.ssffFiles[0] back to file (expects FORMANTS files to have .fms as extentions)
-          fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '.fms')), mJSO.data.ssffFiles[0].data, 'base64');
-        }
+        // if (foundFormantsDef) {
+        //   // write SSFF stored in mJSO.data.ssffFiles[0] back to file (expects FORMANTS files to have .fms as extentions)
+        //   fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '.fms')), mJSO.data.ssffFiles[0].data, 'base64');
+        // }
 
-        // git commit
-        var commitMessage = 'EMU-webApp auto save commit; User: ' + wsConnect.ID + '; DB: ' + wsConnect.path2db + '; Bundle: ' + mJSO.data.annotation.name;
-        var gitCommand = 'git --git-dir=' + path.join(wsConnect.path2db, '.git') + ' --work-tree=' + wsConnect.path2db + ' commit -am "' + commitMessage + '"';
-        log.info('Commit to dbs git repo with command: ' + gitCommand);
+        // // git commit
+        // var commitMessage = 'EMU-webApp auto save commit; User: ' + wsConnect.ID + '; DB: ' + wsConnect.path2db + '; Bundle: ' + mJSO.data.annotation.name;
+        // var gitCommand = 'git --git-dir=' + path.join(wsConnect.path2db, '.git') + ' --work-tree=' + wsConnect.path2db + ' commit -am "' + commitMessage + '"';
+        // log.info('Commit to dbs git repo with command: ' + gitCommand);
 
-        exec(gitCommand, function (error, stdout, stderr) {
-          if (error !== null) {
-            log.info('Error commiting to git repo');
-          }
-        });
+        // exec(gitCommand, function (error, stdout, stderr) {
+        //   if (error !== null) {
+        //     log.info('Error commiting to git repo');
+        //   }
+        // });
 
-        wsConnect.send(JSON.stringify({
-          'callbackID': mJSO.callbackID,
-          'status': {
-            'type': 'SUCCESS'
-          }
-        }), undefined, 0);
+        // wsConnect.send(JSON.stringify({
+        //   'callbackID': mJSO.callbackID,
+        //   'status': {
+        //     'type': 'SUCCESS'
+        //   }
+        // }), undefined, 0);
 
         break;
 
         // DISCONNECTING method
       case 'DISCONNECTWARNING':
 
-        ws.send(JSON.stringify({
+        wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
           'status': {
             'type': 'SUCCESS',
