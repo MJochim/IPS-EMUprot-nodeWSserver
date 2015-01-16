@@ -9,7 +9,7 @@
  */
 
 
- (function () {
+(function () {
 
   "use strict";
 
@@ -56,6 +56,8 @@
     ssl_cert: 'certs/server.crt',
     use_ldap: true,
     ldap_address: 'ldaps://ldap.phonetik.uni-muenchen.de:636',
+    binddn_left: 'uid=',
+    binddn_right: ',ou=People,dc=phonetik,dc=uni-muenchen,dc=de',
     sqlite_db: 'IPS-EMUprot-nodeWSserver.DB'
   };
 
@@ -94,14 +96,14 @@
 
 
 
-    //
-    function generateUUID() {
-      function rand(s) {
-        var p = (Math.random().toString(16) + '000000000').substr(2, 8);
-        return s ? '-' + p.substr(0, 4) + '-' + p.substr(4, 4) : p;
-      }
-      return rand() + rand(true) + rand(true) + rand();
+  //
+  function generateUUID() {
+    function rand(s) {
+      var p = (Math.random().toString(16) + '000000000').substr(2, 8);
+      return s ? '-' + p.substr(0, 4) + '-' + p.substr(4, 4) : p;
     }
+    return rand() + rand(true) + rand(true) + rand();
+  }
 
 
   // keep track of clients
@@ -123,12 +125,12 @@
     // close event
     wsConnect.on('close', function (message) {
       log.info('closing connection',
-       '; clientID:', wsConnect.connectionID,
-       '; clientIP:', 'NA on close');
+        '; clientID:', wsConnect.connectionID,
+        '; clientIP:', 'NA on close');
 
       // remove client
-      for(var i = 0; i < clients.length; i++) {
-        if(clients[i].connectionID === wsConnect.connectionID) {
+      for (var i = 0; i < clients.length; i++) {
+        if (clients[i].connectionID === wsConnect.connectionID) {
           clients.splice(i);
           break;
         }
@@ -142,15 +144,15 @@
       var mJSO = JSON.parse(message);
 
       log.info('request/message type:', mJSO.type,
-       '; clientID:', wsConnect.connectionID,
-       '; clientIP:', wsConnect._socket.remoteAddress);
+        '; clientID:', wsConnect.connectionID,
+        '; clientIP:', wsConnect._socket.remoteAddress);
 
       if (res && wsConnect.upgradeReq.url !== '/') {
         wsConnect.path2db = path.normalize(path.join(path2emuDBs, wsConnect.upgradeReq.url));
       } else {
         log.info('requested DB does not exist!',
-         '; clientID:', wsConnect.connectionID,
-         '; clientIP:', wsConnect._socket.remoteAddress);
+          '; clientID:', wsConnect.connectionID,
+          '; clientIP:', wsConnect._socket.remoteAddress);
 
         wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
@@ -165,11 +167,11 @@
       switch (mJSO.type) {
 
         // GETPROTOCOL method
-        case 'GETPROTOCOL':
+      case 'GETPROTOCOL':
 
         log.info('Following URL path (i.e. DB) was requested: ', wsConnect.upgradeReq.url,
-         '; clientID:', wsConnect.connectionID,
-         '; clientIP:', wsConnect._socket.remoteAddress);
+          '; clientID:', wsConnect.connectionID,
+          '; clientIP:', wsConnect._socket.remoteAddress);
 
         wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
@@ -186,7 +188,7 @@
         break;
 
         // GETDOUSERMANAGEMENT method
-        case 'GETDOUSERMANAGEMENT':
+      case 'GETDOUSERMANAGEMENT':
 
         wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
@@ -200,7 +202,7 @@
         break;
 
         // LOGONUSER method
-        case 'LOGONUSER':
+      case 'LOGONUSER':
         console.log('#########################################################')
         fs.readFile(path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json'), 'utf8', function (err, data) {
           if (err) {
@@ -217,11 +219,11 @@
             }), undefined, 0);
           } else {
             log.info('Found _bndlList.json for user: ', mJSO.userName, ' in: ', wsConnect.upgradeReq.url,
-             '; clientID:', wsConnect.connectionID,
-             '; clientIP:', wsConnect._socket.remoteAddress);
+              '; clientID:', wsConnect.connectionID,
+              '; clientIP:', wsConnect._socket.remoteAddress);
 
             // test if user is can bind to LDAP
-            var binddn = 'uid=' + mJSO.userName + ',ou=People,dc=phonetik,dc=uni-muenchen,dc=de';
+            var binddn = config.binddn_left + mJSO.userName + config.binddn_right;
 
             var ldapClient = ldap.createClient({
               url: cfg.ldap_address,
@@ -268,13 +270,13 @@
 
               }
             });
-}
-});
+          }
+        });
 
-break;
+        break;
 
         // GETGLOBALDBCONFIG method
-        case 'GETGLOBALDBCONFIG':
+      case 'GETGLOBALDBCONFIG':
 
         var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.upgradeReq.url + '_DBconfig.json'));
         fs.readFile(dbConfigPath, 'utf8', function (err, data) {
@@ -305,7 +307,7 @@ break;
         break;
 
         // GETBUNDLELIST method
-        case 'GETBUNDLELIST':
+      case 'GETBUNDLELIST':
 
         wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
@@ -320,7 +322,7 @@ break;
 
 
         // GETBUNDLE method
-        case 'GETBUNDLE':
+      case 'GETBUNDLE':
 
         log.info('GETBUNDLE session: ' + mJSO.session + '; GETBUNDLE name: ' + mJSO.name);
 
@@ -331,11 +333,11 @@ break;
 
         // get files bundle files
         filewalker(path2ses)
-        .on('dir', function () {}).on('file', function (p) {
+          .on('dir', function () {}).on('file', function (p) {
 
-          var pattMedia = new RegExp(mJSO.name + '_bndl' + '/[^/]+' + wsConnect.dbConfig.mediafileExtension + '$');
+            var pattMedia = new RegExp(mJSO.name + '_bndl' + '/[^/]+' + wsConnect.dbConfig.mediafileExtension + '$');
 
-          var pattAnnot = new RegExp(mJSO.name + '_bndl' + '/[^/]+' + '_annot.json' + '$');
+            var pattAnnot = new RegExp(mJSO.name + '_bndl' + '/[^/]+' + '_annot.json' + '$');
 
             // set media file path
             if (pattMedia.test(p)) {
@@ -394,10 +396,10 @@ break;
 
           }).walk();
 
-break;
+        break;
 
         // SAVEBUNDLE method
-        case 'SAVEBUNDLE':
+      case 'SAVEBUNDLE':
 
         // log.info('Saving: ' + mJSO.data.annotation.name);
 
@@ -438,10 +440,10 @@ break;
         //   }
         // }), undefined, 0);
 
-break;
+        break;
 
         // DISCONNECTING method
-        case 'DISCONNECTWARNING':
+      case 'DISCONNECTWARNING':
 
         wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
@@ -453,7 +455,7 @@ break;
 
         break;
 
-        default:
+      default:
         wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
           'status': {
@@ -465,6 +467,6 @@ break;
 
     });
 
-});
+  });
 
 }());

@@ -1,34 +1,34 @@
 /**
-  * nodejs script to manage the SQLite DB that contains 
-  * all registered users (excluding users using verification over LDAP)
-  * The SQLite DB contains a single table that is created with the following command:
-  *
-  * > CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, password TEXT, salt TEXT)
-  *
-  * All passwords are stored as hashes using the bcrypt package: https://www.npmjs.com/package/bcrypt-nodejs
-  *
-  * -------------------------------------------------------- 
-  *
-  * This script enables the user to do the following things:
-  * 
-  * 1.) Create a new SQLiteDB to use with the node server:
-  *
-  *         > node manageSQLiteDB.js --createNewDB path/to/IPS-EMUprot-nodeWSserver.DB
-  *
-  *     Where "path/to/IPS-EMUprot-nodeWSserver.DB" is the path you wish the new DB to be placed in 
-  *
-  * 2.) Add new user to existing SQLiteDB
-  *
-  *         > node manageSQLiteDB.js --addUser path/to/IPS-EMUprot-nodeWSserver.DB username
-  * 
-  * 3.) Remove a user from existing SQLiteDB
-  *
-  *         > node manageSQLiteDB.js --removeUser path/to/IPS-EMUprot-nodeWSserver.DB username
-  *
-  * 4.) List all users in SQLiteDB
-  *
-  *         > node manageSQLiteDB.js --listUsers path/to/IPS-EMUprot-nodeWSserver.DB
-  */
+ * nodejs script to manage the SQLite DB that contains
+ * all registered users (excluding users using verification over LDAP)
+ * The SQLite DB contains a single table that is created with the following command:
+ *
+ * > CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, password TEXT, salt TEXT)
+ *
+ * All passwords are stored as hashes using the bcrypt package: https://www.npmjs.com/package/bcrypt-nodejs
+ *
+ * --------------------------------------------------------
+ *
+ * This script enables the user to do the following things:
+ *
+ * 1.) Create a new SQLiteDB to use with the node server:
+ *
+ *         > node manageSQLiteDB.js --createNewDB path/to/IPS-EMUprot-nodeWSserver.DB
+ *
+ *     Where "path/to/IPS-EMUprot-nodeWSserver.DB" is the path you wish the new DB to be placed in
+ *
+ * 2.) Add new user to existing SQLiteDB
+ *
+ *         > node manageSQLiteDB.js --addUser path/to/IPS-EMUprot-nodeWSserver.DB username
+ *
+ * 3.) Remove a user from existing SQLiteDB
+ *
+ *         > node manageSQLiteDB.js --removeUser path/to/IPS-EMUprot-nodeWSserver.DB username
+ *
+ * 4.) List all users in SQLiteDB
+ *
+ *         > node manageSQLiteDB.js --listUsers path/to/IPS-EMUprot-nodeWSserver.DB
+ */
 
 // load deps
 var fs = require('fs');
@@ -53,26 +53,26 @@ var rl;
 /**
  *
  */
- function hideStdIn(callback) {
+function hideStdIn(callback) {
     var stdin = process.openStdin();
-    process.stdin.on("data", function(char) {
-        process.stdout.write("\033[2K\033[200D" + promptTxt + Array(rl.line.length+1).join("*"));
+    process.stdin.on("data", function (char) {
+        process.stdout.write("\033[2K\033[200D" + promptTxt + Array(rl.line.length + 1).join("*"));
     });
 }
 
 /**
  *
  */
- function getUserInput(callback) {
+function getUserInput(callback) {
     hideStdIn();
     var res;
     rl = readline.createInterface(process.stdin, process.stdout);
     rl.setPrompt(promptTxt);
     rl.prompt();
-    rl.on('line', function(line) {
+    rl.on('line', function (line) {
         res = line;
         rl.close();
-    }).on('close',function(){
+    }).on('close', function () {
         callback(res);
     });
 }
@@ -80,11 +80,11 @@ var rl;
 /**
  *
  */
- function readAllRows() {
+function readAllRows() {
     console.log('\nCurrent users table (; separated):');
-    db.all("SELECT * FROM users", function(err, rows) {
+    db.all("SELECT * FROM users", function (err, rows) {
         rows.forEach(function (row) {
-            console.log("\t"+row.id + "; " + row.username + "; " + row.password + "; " + row.salt);
+            console.log("\t" + row.id + "; " + row.username + "; " + row.password + "; " + row.salt);
         });
     });
 }
@@ -92,7 +92,7 @@ var rl;
 /**
  *
  */
- function insertHashedEntry(usrname, pwd, callback) {
+function insertHashedEntry(usrname, pwd, callback) {
     console.log('INFO: inserting into users Table...');
     var salt = bcrypt.genSaltSync(10);
     var hash = bcrypt.hashSync(pwd, salt);
@@ -104,17 +104,17 @@ var rl;
 /**
  *
  */
- function checkIfRoot(callback){
-    db.all("SELECT * FROM users WHERE username='root'", function(err, rows) {
-        if(rows.length !== 1){
+function checkIfRoot(callback) {
+    db.all("SELECT * FROM users WHERE username='root'", function (err, rows) {
+        if (rows.length !== 1) {
             console.error('More than one or no root entry found! -> Invalid table!!!');
-        }else{
+        } else {
             promptTxt = 'Enter root password> ';
             getUserInput(function (pwd) {
                 res = bcrypt.compareSync(pwd, rows[0].password);
-                if(res){
+                if (res) {
                     callback();
-                }else{
+                } else {
                     console.error('WRONG ROOT PASSWORD!!!');
                 }
             });
@@ -125,11 +125,11 @@ var rl;
 /**
  *
  */
- function checkIfUsrExist(callback){
-    db.all("SELECT * FROM users WHERE username='" + username + "'", function(err, rows) {
-        if(rows.length === 1){
+function checkIfUsrExist(callback) {
+    db.all("SELECT * FROM users WHERE username='" + username + "'", function (err, rows) {
+        if (rows.length === 1) {
             console.error('User already exists!');
-        }else{
+        } else {
             callback();
         }
 
@@ -140,7 +140,7 @@ var rl;
 /**
  *
  */
- function createNewDB(path) {
+function createNewDB(path) {
 
 
     function createTable() {
@@ -155,10 +155,10 @@ var rl;
 
             promptTxt = 'Reenter password> ';
             getUserInput(function (pwd2) {
-                if(pwd1 !== pwd2){
+                if (pwd1 !== pwd2) {
                     console.log('Passwords where not the same! Please try again...')
                     getNewRootPwd();
-                }else{
+                } else {
                     insertHashedEntry('root', pwd1, readAllRows);
                 }
             });
@@ -172,9 +172,9 @@ var rl;
 /**
  *
  */
- function addNewUser(path) {
+function addNewUser(path) {
 
-    function addUser(){
+    function addUser() {
         checkIfRoot(function () {
             checkIfUsrExist(function () {
                 // body...
@@ -182,10 +182,10 @@ var rl;
                 getUserInput(function (pwd1) {
                     promptTxt = 'Reenter password> ';
                     getUserInput(function (pwd2) {
-                        if(pwd1 !== pwd2){
+                        if (pwd1 !== pwd2) {
                             console.log('Passwords where not the same! Please try again...');
                             getNewRootPwd();
-                        }else{
+                        } else {
                             insertHashedEntry(username, pwd1, readAllRows);
                         }
                     });
@@ -200,9 +200,9 @@ var rl;
 /**
  *
  */
- function removeUser(path) {
+function removeUser(path) {
 
-    function rmUsr(){
+    function rmUsr() {
         checkIfRoot(function () {
             var stmt = db.prepare("DELETE FROM users WHERE username='" + username + "'");
             stmt.run();
@@ -217,18 +217,18 @@ var rl;
 /**
  *
  */
- function preCheckIfExist(path, proceedIfExist, callback) {
+function preCheckIfExist(path, proceedIfExist, callback) {
     fs.exists(path, function (exists) {
-        if(!exists){
-            if(proceedIfExist){
+        if (!exists) {
+            if (proceedIfExist) {
                 console.error(path, "doesn't exists!!!");
-            }else{
+            } else {
                 callback(path);
             }
-        }else{
-            if(proceedIfExist){
+        } else {
+            if (proceedIfExist) {
                 callback(path);
-            }else{
+            } else {
                 console.error(path, "already exists!!!");
             }
         }
@@ -241,22 +241,22 @@ var rl;
 // call functions according to 
 // options passed in
 
-if(option == '--createNewDB'){
+if (option == '--createNewDB') {
     preCheckIfExist(dbPath, false, createNewDB);
-}else if(option == '--addNewUser'){
+} else if (option == '--addNewUser') {
     username = process.argv[4];
-    if(username!==undefined){
+    if (username !== undefined) {
         preCheckIfExist(dbPath, true, addNewUser);
-    }else{
+    } else {
         console.error('Unspecified username argument');
     }
-}else if(option == '--removeUser'){
+} else if (option == '--removeUser') {
     username = process.argv[4];
-    if(username!==undefined){
+    if (username !== undefined) {
         preCheckIfExist(dbPath, true, removeUser);
-    }else{
+    } else {
         console.error('Unspecified username argument');
     }
-}else if(option == '--listUsers'){
+} else if (option == '--listUsers') {
     db = new sqlite3.Database(dbPath, readAllRows);
 }
