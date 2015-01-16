@@ -22,18 +22,28 @@
   var bunyan = require('bunyan');
   var ldap = require('ldapjs');
   var exec = require('child_process').exec;
+  var bcrypt = require('bcrypt');
+  var sqlite3 = require('sqlite3').verbose();
 
   // for authentication to work
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 
   // create logger
   var log = bunyan.createLogger({
     name: "nodeEmuWS"
   });
+
   log.info("starting server...");
+
+  // read in config file
+  var cfg = JSON.parse(fs.readFileSync('server_config.json'));
 
   // vars
   var path2emuDBs;
+  var usersDB = new sqlite3.Database(cfg.sqlite_db, function () {
+    log.info('finished loading SQLiteDB');
+  });
 
   ////////////////////////////////////////////////
   // parse args
@@ -48,18 +58,7 @@
   ////////////////////////////////////////////////
   // set up certs and keys for secure connection
 
-  // you'll probably load configuration from config
-  var cfg = {
-    ssl: false,
-    port: 17890,
-    ssl_key: 'certs/server.key',
-    ssl_cert: 'certs/server.crt',
-    use_ldap: true,
-    ldap_address: 'ldaps://ldap.phonetik.uni-muenchen.de:636',
-    binddn_left: 'uid=',
-    binddn_right: ',ou=People,dc=phonetik,dc=uni-muenchen,dc=de',
-    sqlite_db: 'IPS-EMUprot-nodeWSserver.DB'
-  };
+
 
   var httpServ = (cfg.ssl) ? require('https') : require('http');
 
@@ -105,6 +104,21 @@
     return rand() + rand(true) + rand(true) + rand();
   }
 
+  //
+  function checkCredentialsInSQLiteDB(username, pwd, callback) {
+    usersDB.all("SELECT * FROM users WHERE username='" + username + "'", function (err, rows) {
+      if (rows.length !== 1) {
+        callback(false);
+      } else {
+        var res = bcrypt.compareSync(pwd, rows[0].password);
+        if (res) {
+          callback(true);
+        } else {
+          callback(false);
+        }
+      }
+    });
+  }
 
   // keep track of clients
   var clients = [];
@@ -203,11 +217,13 @@
 
         // LOGONUSER method
       case 'LOGONUSER':
-        console.log('#########################################################')
         fs.readFile(path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json'), 'utf8', function (err, data) {
           if (err) {
-            log.info('user NOT THERE');
-            log.info(err);
+
+            log.info('error reading _bundleList:', err,
+              '; clientID:', wsConnect.connectionID,
+              '; clientIP:', wsConnect._socket.remoteAddress);
+
             // handle wrong user name
             wsConnect.send(JSON.stringify({
               'callbackID': mJSO.callbackID,
@@ -217,59 +233,136 @@
                 'message': ''
               }
             }), undefined, 0);
+
           } else {
-            log.info('Found _bndlList.json for user: ', mJSO.userName, ' in: ', wsConnect.upgradeReq.url,
+
+            log.info('found _bndlList.json for user: ', mJSO.userName, ' in: ', wsConnect.upgradeReq.url,
               '; clientID:', wsConnect.connectionID,
               '; clientIP:', wsConnect._socket.remoteAddress);
 
             // test if user is can bind to LDAP
-            var binddn = config.binddn_left + mJSO.userName + config.binddn_right;
+            var binddn = cfg.binddn_left + mJSO.userName + cfg.binddn_right;
 
             var ldapClient = ldap.createClient({
               url: cfg.ldap_address,
               log: log
             });
 
-            ldapClient.bind(binddn, mJSO.pwd, function (err) {
-              if (err) {
-                console.log('###############');
-                console.log(err);
-                log.info('User', mJSO.userName, 'invalid ldap bind attempt');
+            if (cfg.use_ldap) {
+              ldapClient.bind(binddn, mJSO.pwd, function (err) {
+                if (err) {
+                  log.info('user', mJSO.userName, 'failed to bind to LDAP with error:', JSON.stringify(err, undefined, 0),
+                    '; clientID:', wsConnect.connectionID,
+                    '; clientIP:', wsConnect._socket.remoteAddress);
 
-                ldapClient.unbind();
+                  ldapClient.unbind();
 
-                wsConnect.send(JSON.stringify({
-                  'callbackID': mJSO.callbackID,
-                  'data': 'Can\'t bind to LDAP with given crentials',
-                  'status': {
-                    'type': 'SUCCESS',
-                    'message': ''
-                  }
-                }), undefined, 0);
+                  // check if in SQLiteDB
+                  checkCredentialsInSQLiteDB(mJSO.userName, mJSO.pwd, function (res) {
+                    if (res) {
+
+                      log.info("user found in SQLiteDB",
+                        '; clientID:', wsConnect.connectionID,
+                        '; clientIP:', wsConnect._socket.remoteAddress);
+
+                      // add ID to connection object
+                      wsConnect.ID = mJSO.userName;
+                      // add bndlList to connection object
+                      wsConnect.bndlList = JSON.parse(data);
+
+                      wsConnect.send(JSON.stringify({
+                        'callbackID': mJSO.callbackID,
+                        'data': 'LOGGEDON',
+                        'status': {
+                          'type': 'SUCCESS',
+                          'message': ''
+                        }
+                      }), undefined, 0);
+
+                    } else {
+
+                      log.info("user not found in SQLiteDB",
+                        '; clientID:', wsConnect.connectionID,
+                        '; clientIP:', wsConnect._socket.remoteAddress);
+
+                      wsConnect.send(JSON.stringify({
+                        'callbackID': mJSO.callbackID,
+                        'data': 'Can\'t log on with given credentials',
+                        'status': {
+                          'type': 'SUCCESS',
+                          'message': ''
+                        }
+                      }), undefined, 0);
+                    }
+                  });
 
 
-              } else {
-                ldapClient.unbind();
 
-                log.info('User', mJSO.userName, 'was able to bind to LDAP');
+                } else {
+                  ldapClient.unbind();
 
-                // add ID to connection object
-                wsConnect.ID = mJSO.userName;
-                // add bndlList to connection object
-                wsConnect.bndlList = JSON.parse(data);
+                  log.info('User', mJSO.userName, 'was able to bind to LDAP',
+                    '; clientID:', wsConnect.connectionID,
+                    '; clientIP:', wsConnect._socket.remoteAddress);
 
-                // reply
-                wsConnect.send(JSON.stringify({
-                  'callbackID': mJSO.callbackID,
-                  'data': 'LOGGEDON',
-                  'status': {
-                    'type': 'SUCCESS',
-                    'message': ''
-                  }
-                }), undefined, 0);
+                  // add ID to connection object
+                  wsConnect.ID = mJSO.userName;
+                  // add bndlList to connection object
+                  wsConnect.bndlList = JSON.parse(data);
 
-              }
-            });
+                  // reply
+                  wsConnect.send(JSON.stringify({
+                    'callbackID': mJSO.callbackID,
+                    'data': 'LOGGEDON',
+                    'status': {
+                      'type': 'SUCCESS',
+                      'message': ''
+                    }
+                  }), undefined, 0);
+
+                }
+              });
+            } else {
+              // SIC!!! redundant code from above... should wrap in func...
+              // check if in SQLiteDB
+              checkCredentialsInSQLiteDB(mJSO.userName, mJSO.pwd, function (res) {
+                if (res) {
+
+                  log.info("user found in SQLiteDB",
+                    '; clientID:', wsConnect.connectionID,
+                    '; clientIP:', wsConnect._socket.remoteAddress);
+
+                  // add ID to connection object
+                  wsConnect.ID = mJSO.userName;
+                  // add bndlList to connection object
+                  wsConnect.bndlList = JSON.parse(data);
+
+                  wsConnect.send(JSON.stringify({
+                    'callbackID': mJSO.callbackID,
+                    'data': 'LOGGEDON',
+                    'status': {
+                      'type': 'SUCCESS',
+                      'message': ''
+                    }
+                  }), undefined, 0);
+
+                } else {
+
+                  log.info("user not found in SQLiteDB",
+                    '; clientID:', wsConnect.connectionID,
+                    '; clientIP:', wsConnect._socket.remoteAddress);
+
+                  wsConnect.send(JSON.stringify({
+                    'callbackID': mJSO.callbackID,
+                    'data': 'Can\'t log on with given credentials',
+                    'status': {
+                      'type': 'SUCCESS',
+                      'message': ''
+                    }
+                  }), undefined, 0);
+                }
+              });
+            }
           }
         });
 
@@ -281,7 +374,11 @@
         var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.upgradeReq.url + '_DBconfig.json'));
         fs.readFile(dbConfigPath, 'utf8', function (err, data) {
           if (err) {
-            log.info('Error: ' + err);
+
+            log.info('Error reading _DBconfig: ' + err,
+              '; clientID:', wsConnect.connectionID,
+              '; clientIP:', wsConnect._socket.remoteAddress);
+
             wsConnect.send(JSON.stringify({
               'callbackID': mJSO.callbackID,
               'status': {
@@ -289,8 +386,11 @@
                 'message': err
               }
             }), undefined, 0);
+
             return;
+
           } else {
+
             wsConnect.dbConfig = JSON.parse(data);
 
             wsConnect.send(JSON.stringify({
@@ -301,6 +401,7 @@
                 'message': ''
               }
             }), undefined, 0);
+
           }
         });
 
@@ -324,20 +425,20 @@
         // GETBUNDLE method
       case 'GETBUNDLE':
 
-        log.info('GETBUNDLE session: ' + mJSO.session + '; GETBUNDLE name: ' + mJSO.name);
+        log.info('GETBUNDLE session: ' + mJSO.session + '; GETBUNDLE name: ' + mJSO.name,
+          '; clientID:', wsConnect.connectionID,
+          '; clientIP:', wsConnect._socket.remoteAddress);
 
-        var path2ses = path.normalize(path.join(wsConnect.path2db, mJSO.session + '_ses'));
+        var path2bndl = path.normalize(path.join(wsConnect.path2db, mJSO.session + '_ses', mJSO.name + '_bndl'));
 
         var bundle = {};
         bundle.ssffFiles = [];
 
-        // get files bundle files
-        filewalker(path2ses)
+        // get bundle files
+        filewalker(path2bndl)
           .on('dir', function () {}).on('file', function (p) {
-
-            var pattMedia = new RegExp(mJSO.name + '_bndl' + '/[^/]+' + wsConnect.dbConfig.mediafileExtension + '$');
-
-            var pattAnnot = new RegExp(mJSO.name + '_bndl' + '/[^/]+' + '_annot.json' + '$');
+            var pattMedia = new RegExp(wsConnect.dbConfig.mediafileExtension + '$');
+            var pattAnnot = new RegExp('_annot.json' + '$');
 
             // set media file path
             if (pattMedia.test(p)) {
@@ -354,7 +455,7 @@
 
             // set ssffTrack paths for tracks in ssffTrackDefinitions
             for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
-              var pattTrack = new RegExp(mJSO.name + '_bndl' + '/[^/]+' + wsConnect.dbConfig.ssffTrackDefinitions[i].fileExtension + '$');
+              var pattTrack = new RegExp(wsConnect.dbConfig.ssffTrackDefinitions[i].fileExtension + '$');
               if (pattTrack.test(p)) {
                 bundle.ssffFiles.push({
                   ssffTrackName: wsConnect.dbConfig.ssffTrackDefinitions[i].name,
@@ -373,18 +474,22 @@
             }), undefined, 0);
           }).on('done', function () {
             // read mediaFile
-            bundle.mediaFile.data = fs.readFileSync(path.join(path2ses, bundle.mediaFile._filePath), 'base64');
+            bundle.mediaFile.data = fs.readFileSync(path.join(path2bndl, bundle.mediaFile._filePath), 'base64');
             delete bundle.mediaFile._filePath;
 
             // read annotation file
-            bundle.annotation = JSON.parse(fs.readFileSync(path.join(path2ses, bundle.annotation._filePath), 'utf8'));
+            bundle.annotation = JSON.parse(fs.readFileSync(path.join(path2bndl, bundle.annotation._filePath), 'utf8'));
             delete bundle.annotation._filePath;
 
             for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
-              bundle.ssffFiles[i].data = fs.readFileSync(path.join(path2ses, bundle.ssffFiles[i]._filePath), 'base64');
+              bundle.ssffFiles[i].data = fs.readFileSync(path.join(path2bndl, bundle.ssffFiles[i]._filePath), 'base64');
               delete bundle.ssffFiles[i].filePath;
             }
-            log.info('Finished reading bundle components. Now returning them.');
+
+            log.info('Finished reading bundle components. Now returning them.',
+              '; clientID:', wsConnect.connectionID,
+              '; clientIP:', wsConnect._socket.remoteAddress);
+
             wsConnect.send(JSON.stringify({
               'callbackID': mJSO.callbackID,
               'data': bundle,
@@ -401,44 +506,63 @@
         // SAVEBUNDLE method
       case 'SAVEBUNDLE':
 
-        // log.info('Saving: ' + mJSO.data.annotation.name);
+        log.info('Saving: ' + mJSO.data.annotation.name,
+          '; clientID:', wsConnect.connectionID,
+          '; clientIP:', wsConnect._socket.remoteAddress);
 
-        // var path2bndl = path.normalize(path.join(wsConnect.path2db, mJSO.data.session + '_ses', mJSO.data.annotation.name + '_bndl'));
+        var path2bndl = path.normalize(path.join(wsConnect.path2db, mJSO.data.session + '_ses', mJSO.data.annotation.name + '_bndl'));
 
-        // // save annotation
-        // fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2));
+        // save annotation
+        fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2));
 
-        // // save FORMANTS track (if defined for DB)
-        // var foundFormantsDef = false;
-        // for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
-        //   console.log(wsConnect.dbConfig.ssffTrackDefinitions[i].name);
-        //   if (wsConnect.dbConfig.ssffTrackDefinitions[i].name === 'FORMANTS') {
-        //     foundFormantsDef = true;
-        //   }
-        // }
+        // save FORMANTS track (if defined for DB)
+        var foundFormantsDef = false;
+        for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
+          console.log(wsConnect.dbConfig.ssffTrackDefinitions[i].name);
+          if (wsConnect.dbConfig.ssffTrackDefinitions[i].name === 'FORMANTS') {
+            foundFormantsDef = true;
+          }
+        }
 
-        // if (foundFormantsDef) {
-        //   // write SSFF stored in mJSO.data.ssffFiles[0] back to file (expects FORMANTS files to have .fms as extentions)
-        //   fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '.fms')), mJSO.data.ssffFiles[0].data, 'base64');
-        // }
+        if (foundFormantsDef) {
+          // write SSFF stored in mJSO.data.ssffFiles[0] back to file (expects FORMANTS files to have .fms as extentions)
+          fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '.fms')), mJSO.data.ssffFiles[0].data, 'base64');
+        }
 
-        // // git commit
-        // var commitMessage = 'EMU-webApp auto save commit; User: ' + wsConnect.ID + '; DB: ' + wsConnect.path2db + '; Bundle: ' + mJSO.data.annotation.name;
-        // var gitCommand = 'git --git-dir=' + path.join(wsConnect.path2db, '.git') + ' --work-tree=' + wsConnect.path2db + ' commit -am "' + commitMessage + '"';
-        // log.info('Commit to dbs git repo with command: ' + gitCommand);
+        // git commit
+        if (cfg.use_git_if_repo_found) {
+          fs.exists(path.join(wsConnect.path2db, '.git'), function (exists) {
+            if (exists) {
+              var commitMessage = 'EMU-webApp auto save commit; User: ' + wsConnect.ID + '; DB: ' + wsConnect.path2db + '; Bundle: ' + mJSO.data.annotation.name;
+              var gitCommand = 'git --git-dir=' + path.join(wsConnect.path2db, '.git') + ' --work-tree=' + wsConnect.path2db + ' commit -am "' + commitMessage + '"';
 
-        // exec(gitCommand, function (error, stdout, stderr) {
-        //   if (error !== null) {
-        //     log.info('Error commiting to git repo');
-        //   }
-        // });
+              log.info('Commit to dbs git repo with command: ' + gitCommand,
+                '; clientID:', wsConnect.connectionID,
+                '; clientIP:', wsConnect._socket.remoteAddress);
 
-        // wsConnect.send(JSON.stringify({
-        //   'callbackID': mJSO.callbackID,
-        //   'status': {
-        //     'type': 'SUCCESS'
-        //   }
-        // }), undefined, 0);
+              exec(gitCommand, function (error, stdout, stderr) {
+                if (error !== null) {
+                  console.log(error);
+                  log.info('Error commiting to git repo',
+                    '; clientID:', wsConnect.connectionID,
+                    '; clientIP:', wsConnect._socket.remoteAddress);
+                }
+              });
+            } else {
+              log.info('no .git directory found',
+                '; clientID:', wsConnect.connectionID,
+                '; clientIP:', wsConnect._socket.remoteAddress);
+            }
+          });
+
+        }
+
+        wsConnect.send(JSON.stringify({
+          'callbackID': mJSO.callbackID,
+          'status': {
+            'type': 'SUCCESS'
+          }
+        }), undefined, 0);
 
         break;
 

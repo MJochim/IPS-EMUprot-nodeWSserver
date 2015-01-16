@@ -1,0 +1,12 @@
+{
+    "ssl": false,
+    "port": 17890,
+    "ssl_key": "certs/server.key",
+    "ssl_cert": "certs/server.crt",
+    "use_ldap": true,
+    "ldap_address": "ldaps://ldap.phonetik.uni-muenchen.de:636",
+    "binddn_left": "uid=",
+    "binddn_right": ",ou=People,dc=phonetik,dc=uni-muenchen,dc=de",
+    "sqlite_db": "IPS-EMUprot-nodeWSserver.DB",
+    "use_git_if_repo_found": true
+}
