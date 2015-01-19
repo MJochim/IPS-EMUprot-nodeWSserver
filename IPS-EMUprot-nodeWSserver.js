@@ -3,7 +3,7 @@
  *
  *
  * to run:
- *  > node IPS-EMUprot-nodeWSserver.js /path/2/emuDBs
+ *  > node IPS-EMUprot-nodeWSserver.js /path/2/emuDBs | node_modules/bunyan/binunyan
  *
  * author: Raphael Winkelmann
  */
