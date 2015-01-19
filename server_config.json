@@ -1,4 +1,5 @@
 {
+    "path2emuDBs": "emuDBs",
     "ssl": false,
     "port": 17890,
     "ssl_key": "certs/server.key",

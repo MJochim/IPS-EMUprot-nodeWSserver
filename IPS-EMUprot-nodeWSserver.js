@@ -5,6 +5,23 @@
  * to run:
  *  > node IPS-EMUprot-nodeWSserver.js /path/2/emuDBs | node_modules/bunyan/binunyan
  *
+ * currently needs file server_config.json that is in the same directory as this server
+ * script:
+ *{
+ *    "path2emuDBs": 'emuDBs', // path to folder containing the emuDBs
+ *    "ssl": true, // true if you want to use ssl (please do!!!)
+ *    "port": 17890, // port you want the websocket server to run on
+ *    "ssl_key": "certs/server.key", // path to ssl_key
+ *    "ssl_cert": "certs/server.crt", // path to ssl_cert
+ *    "use_ldap": true, // true if you want to try to bind to ldap
+ *    "ldap_address": "ldaps://ldap.phonetik.uni-muenchen.de:636", // ldap address
+ *    "binddn_left": "uid=", // left side of binddn (resulting binddn_left + username + binddn_right)
+ *    "binddn_right": ",ou=People,dc=phonetik,dc=uni-muenchen,dc=de", // right side of binddn (resulting binddn_left + username + binddn_right)
+ *    "sqlite_db": "IPS-EMUprot-nodeWSserver.DB", // sqlite_db containing users table
+ *    "use_git_if_repo_found": true, // automatically commit to git repo in database 
+ *    "filter_bndlList_for_finishedEditing": true // remove all bundles form bundleList where finishedEditing = true returning it to the EMU-webApp
+ *}
+ * 
  * author: Raphael Winkelmann
  */
 
@@ -42,7 +59,7 @@
   var cfg = JSON.parse(fs.readFileSync('server_config.json'));
 
   // vars
-  var path2emuDBs;
+  // var cfg.path2emuDBs;
   var usersDB = new sqlite3.Database(cfg.sqlite_db, function () {
     log.info('finished loading SQLiteDB');
   });
@@ -50,12 +67,12 @@
   ////////////////////////////////////////////////
   // parse args
 
-  if (process.argv.length === 3) {
-    path2emuDBs = process.argv[2];
-  } else {
-    console.error('ERROR: path to emuDBs has to be given as an argument!!');
-    process.exit(1);
-  }
+  // if (process.argv.length === 3) {
+  //   cfg.path2emuDBs = process.argv[2];
+  // } else {
+  //   console.error('ERROR: path to emuDBs has to be given as an argument!!');
+  //   process.exit(1);
+  // }
 
   ////////////////////////////////////////////////
   // set up certs and keys for secure connection
@@ -248,7 +265,7 @@
 
     // message event
     wsConnect.on('message', function (message) {
-      var res = fs.existsSync(path2emuDBs + wsConnect.upgradeReq.url);
+      var res = fs.existsSync(cfg.path2emuDBs + wsConnect.upgradeReq.url);
 
       var mJSO = JSON.parse(message);
 
@@ -257,7 +274,7 @@
         '; clientIP:', wsConnect._socket.remoteAddress);
 
       if (res && wsConnect.upgradeReq.url !== '/') {
-        wsConnect.path2db = path.normalize(path.join(path2emuDBs, wsConnect.upgradeReq.url));
+        wsConnect.path2db = path.normalize(path.join(cfg.path2emuDBs, wsConnect.upgradeReq.url));
       } else {
         log.info('requested DB does not exist!',
           '; clientID:', wsConnect.connectionID,
