@@ -25,6 +25,7 @@
   var bcrypt = require('bcrypt');
   var sqlite3 = require('sqlite3').verbose();
   var async = require('async');
+  var Q = require('q');
 
   // for authentication to work
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -96,7 +97,9 @@
 
 
 
-  //
+  /**
+   *
+   */
   function generateUUID() {
     function rand(s) {
       var p = (Math.random().toString(16) + '000000000').substr(2, 8);
@@ -105,7 +108,9 @@
     return rand() + rand(true) + rand(true) + rand();
   }
 
-  //
+  /**
+   *
+   */
   function checkCredentialsInSQLiteDB(username, pwd, callback) {
     usersDB.all("SELECT * FROM users WHERE username='" + username + "'", function (err, rows) {
       if (rows.length !== 1) {
@@ -120,6 +125,95 @@
       }
     });
   }
+
+  /**
+   *
+   */
+  function updateBndlListEntry(bndlListPath, entry) {
+    var deferred = Q.defer();
+
+    fs.readFile(bndlListPath, function (err, data) {
+      if (err) {
+        deffered.reject(new Error(err));
+      } else {
+        var curBndlList = JSON.parse(data);
+
+        var foundEntry = false;
+        for (var i = 0; i < curBndlList.length; i++) {
+          if (curBndlList[i].name === entry.name && curBndlList[i].session === entry.session) {
+            curBndlList[i] = entry;
+            foundEntry = true;
+            break;
+          }
+        }
+
+        if (foundEntry) {
+          fs.writeFile(bndlListPath, JSON.stringify(curBndlList, undefined, 2), function (err) {
+            if (err) {
+              deferred.reject(new Error(err));
+            } else {
+              deferred.resolve();
+            }
+          });
+        }
+      }
+    });
+
+    return deferred.promise;
+  }
+
+  /**
+   *
+   */
+  function filterBndlList(bndlList) {
+
+    var filtBndlList = [];
+
+    for (var i = 0; i < bndlList.length; i++) {
+      if (bndlList[i].finishedEditing !== true) {
+        filtBndlList.push(bndlList[i]);
+      }
+    }
+
+    return filtBndlList;
+
+  }
+
+  /**
+   *
+   */
+  function commitToGitRepo(path2db, ID, bundleName, connectionID, remoteAddress) {
+    var deferred = Q.defer();
+
+    fs.exists(path.join(path2db, '.git'), function (exists) {
+      if (exists) {
+        var commitMessage = 'EMU-webApp auto save commit; User: ' + ID + '; DB: ' + path2db + '; Bundle: ' + bundleName;
+        var gitCommand = 'git --git-dir=' + path.join(path2db, '.git') + ' --work-tree=' + path2db + ' commit -am "' + commitMessage + '"';
+
+        log.info('Commit to dbs git repo with command: ' + gitCommand,
+          '; clientID:', connectionID,
+          '; clientIP:', remoteAddress);
+
+        exec(gitCommand, function (error, stdout, stderr) {
+          if (error !== null) {
+            log.info('Error commiting to git repo',
+              '; clientID:', connectionID,
+              '; clientIP:', remoteAddress);
+            deferred.resolve();
+          }
+          deferred.resolve();
+        });
+      } else {
+        log.info('no .git directory found',
+          '; clientID:', connectionID,
+          '; clientIP:', remoteAddress);
+        deferred.resolve();
+      }
+    });
+
+    return deferred.promise;
+  }
+
 
   // keep track of clients
   var clients = [];
@@ -269,7 +363,12 @@
                       // add ID to connection object
                       wsConnect.ID = mJSO.userName;
                       // add bndlList to connection object
-                      wsConnect.bndlList = JSON.parse(data);
+                      if (cfg.filter_bndlList_for_finishedEditing) {
+                        wsConnect.bndlList = filterBndlList(JSON.parse(data));
+                      } else {
+                        wsConnect.bndlList = JSON.parse(data);
+                      }
+                      wsConnect.bndlListPath = path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json');
 
                       wsConnect.send(JSON.stringify({
                         'callbackID': mJSO.callbackID,
@@ -309,7 +408,12 @@
                   // add ID to connection object
                   wsConnect.ID = mJSO.userName;
                   // add bndlList to connection object
-                  wsConnect.bndlList = JSON.parse(data);
+                  if (cfg.filter_bndlList_for_finishedEditing) {
+                    wsConnect.bndlList = filterBndlList(JSON.parse(data));
+                  } else {
+                    wsConnect.bndlList = JSON.parse(data);
+                  }
+                  wsConnect.bndlListPath = path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json');
 
                   // reply
                   wsConnect.send(JSON.stringify({
@@ -410,7 +514,6 @@
 
         // GETBUNDLELIST method
       case 'GETBUNDLELIST':
-
         wsConnect.send(JSON.stringify({
           'callbackID': mJSO.callbackID,
           'data': wsConnect.bndlList,
@@ -510,7 +613,6 @@
                   }), undefined, 0);
 
                 } else {
-                  console.log(results);
                   var fileIdx;
 
                   // set media file
@@ -559,57 +661,91 @@
 
         var path2bndl = path.normalize(path.join(wsConnect.path2db, mJSO.data.session + '_ses', mJSO.data.annotation.name + '_bndl'));
 
-        // save annotation
-        fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2));
+        // update bundleList 
+        updateBndlListEntry(wsConnect.bndlListPath, {
+          'name': mJSO.data.annotation.name,
+          'session': mJSO.data.session,
+          'finishedEditing': mJSO.data.finishedEditing,
+          'comment': mJSO.data.comment
+        }).then(function () {
 
-        // save FORMANTS track (if defined for DB)
-        var foundFormantsDef = false;
-        for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
-          console.log(wsConnect.dbConfig.ssffTrackDefinitions[i].name);
-          if (wsConnect.dbConfig.ssffTrackDefinitions[i].name === 'FORMANTS') {
-            foundFormantsDef = true;
-          }
-        }
-
-        if (foundFormantsDef) {
-          // write SSFF stored in mJSO.data.ssffFiles[0] back to file (expects FORMANTS files to have .fms as extentions)
-          fs.writeFileSync(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '.fms')), mJSO.data.ssffFiles[0].data, 'base64');
-        }
-
-        // git commit
-        if (cfg.use_git_if_repo_found) {
-          fs.exists(path.join(wsConnect.path2db, '.git'), function (exists) {
-            if (exists) {
-              var commitMessage = 'EMU-webApp auto save commit; User: ' + wsConnect.ID + '; DB: ' + wsConnect.path2db + '; Bundle: ' + mJSO.data.annotation.name;
-              var gitCommand = 'git --git-dir=' + path.join(wsConnect.path2db, '.git') + ' --work-tree=' + wsConnect.path2db + ' commit -am "' + commitMessage + '"';
-
-              log.info('Commit to dbs git repo with command: ' + gitCommand,
-                '; clientID:', wsConnect.connectionID,
-                '; clientIP:', wsConnect._socket.remoteAddress);
-
-              exec(gitCommand, function (error, stdout, stderr) {
-                if (error !== null) {
-                  console.log(error);
-                  log.info('Error commiting to git repo',
-                    '; clientID:', wsConnect.connectionID,
-                    '; clientIP:', wsConnect._socket.remoteAddress);
+          // save annotation
+          fs.writeFile(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2), function (err) {
+            if (err) {
+              wsConnect.send(JSON.stringify({
+                'callbackID': mJSO.callbackID,
+                'status': {
+                  'type': 'ERROR',
+                  'message': 'Error writing annotation: ' + err
                 }
-              });
+              }), undefined, 0);
             } else {
-              log.info('no .git directory found',
-                '; clientID:', wsConnect.connectionID,
-                '; clientIP:', wsConnect._socket.remoteAddress);
+
+              // save FORMANTS track (if defined for DB)
+              var foundFormantsDef = false;
+              for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
+                if (wsConnect.dbConfig.ssffTrackDefinitions[i].name === 'FORMANTS') {
+                  foundFormantsDef = true;
+                }
+              }
+
+              if (foundFormantsDef) {
+                // write SSFF stored in mJSO.data.ssffFiles[0] back to file (expects FORMANTS files to have .fms as extentions)
+                fs.writeFile(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '.fms')), mJSO.data.ssffFiles[0].data, 'base64', function (err) {
+                  // git commit
+                  if (cfg.use_git_if_repo_found) {
+                    commitToGitRepo(wsConnect.path2db, wsConnect.ID, mJSO.data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
+                      console.log('ICH HABE COMMITTEDDDDD ALLLTAAA');
+                      wsConnect.send(JSON.stringify({
+                        'callbackID': mJSO.callbackID,
+                        'status': {
+                          'type': 'SUCCESS'
+                        }
+                      }), undefined, 0);
+
+                    });
+                  } else {
+                    wsConnect.send(JSON.stringify({
+                      'callbackID': mJSO.callbackID,
+                      'status': {
+                        'type': 'SUCCESS'
+                      }
+                    }), undefined, 0);
+                  }
+                });
+              } else {
+                // git commit SIC redundant
+                if (cfg.use_git_if_repo_found) {
+                  commitToGitRepo(wsConnect.path2db, wsConnect.ID, mJSO.data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
+                    wsConnect.send(JSON.stringify({
+                      'callbackID': mJSO.callbackID,
+                      'status': {
+                        'type': 'SUCCESS'
+                      }
+                    }), undefined, 0);
+
+                  });
+                } else {
+                  wsConnect.send(JSON.stringify({
+                    'callbackID': mJSO.callbackID,
+                    'status': {
+                      'type': 'SUCCESS'
+                    }
+                  }), undefined, 0);
+                }
+              }
             }
           });
 
-        }
-
-        wsConnect.send(JSON.stringify({
-          'callbackID': mJSO.callbackID,
-          'status': {
-            'type': 'SUCCESS'
-          }
-        }), undefined, 0);
+        }, function (err) {
+          wsConnect.send(JSON.stringify({
+            'callbackID': mJSO.callbackID,
+            'status': {
+              'type': 'ERROR',
+              'message': 'Error reading updating bundleList: ' + err
+            }
+          }), undefined, 0);
+        });
 
         break;
 

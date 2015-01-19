@@ -8,5 +8,6 @@
     "binddn_left": "uid=",
     "binddn_right": ",ou=People,dc=phonetik,dc=uni-muenchen,dc=de",
     "sqlite_db": "IPS-EMUprot-nodeWSserver.DB",
-    "use_git_if_repo_found": true
+    "use_git_if_repo_found": true,
+    "filter_bndlList_for_finishedEditing": true
 }
