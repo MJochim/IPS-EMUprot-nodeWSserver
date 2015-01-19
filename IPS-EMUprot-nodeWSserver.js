@@ -695,7 +695,6 @@
                   // git commit
                   if (cfg.use_git_if_repo_found) {
                     commitToGitRepo(wsConnect.path2db, wsConnect.ID, mJSO.data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
-                      console.log('ICH HABE COMMITTEDDDDD ALLLTAAA');
                       wsConnect.send(JSON.stringify({
                         'callbackID': mJSO.callbackID,
                         'status': {
