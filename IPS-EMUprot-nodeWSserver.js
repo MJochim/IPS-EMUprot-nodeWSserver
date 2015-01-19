@@ -659,7 +659,7 @@
           '; clientID:', wsConnect.connectionID,
           '; clientIP:', wsConnect._socket.remoteAddress);
 
-        var path2bndl = path.normalize(path.join(wsConnect.path2db, mJSO.data.session + '_ses', mJSO.data.annotation.name + '_bndl'));
+        var path2bndl2save = path.normalize(path.join(wsConnect.path2db, mJSO.data.session + '_ses', mJSO.data.annotation.name + '_bndl'));
 
         // update bundleList 
         updateBndlListEntry(wsConnect.bndlListPath, {
@@ -670,7 +670,7 @@
         }).then(function () {
 
           // save annotation
-          fs.writeFile(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2), function (err) {
+          fs.writeFile(path.normalize(path.join(path2bndl2save, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2), function (err) {
             if (err) {
               wsConnect.send(JSON.stringify({
                 'callbackID': mJSO.callbackID,
@@ -691,10 +691,11 @@
 
               if (foundFormantsDef) {
                 // write SSFF stored in mJSO.data.ssffFiles[0] back to file (expects FORMANTS files to have .fms as extentions)
-                fs.writeFile(path.normalize(path.join(path2bndl, mJSO.data.annotation.name + '.fms')), mJSO.data.ssffFiles[0].data, 'base64', function (err) {
+                fs.writeFile(path.normalize(path.join(path2bndl2save, mJSO.data.annotation.name + '.fms')), mJSO.data.ssffFiles[0].data, 'base64', function (err) {
                   // git commit
                   if (cfg.use_git_if_repo_found) {
                     commitToGitRepo(wsConnect.path2db, wsConnect.ID, mJSO.data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
+
                       wsConnect.send(JSON.stringify({
                         'callbackID': mJSO.callbackID,
                         'status': {
