@@ -24,6 +24,7 @@
   var exec = require('child_process').exec;
   var bcrypt = require('bcrypt');
   var sqlite3 = require('sqlite3').verbose();
+  var async = require('async');
 
   // for authentication to work
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -434,6 +435,8 @@
         var bundle = {};
         bundle.ssffFiles = [];
 
+        var allFilePaths = [];
+
         // get bundle files
         filewalker(path2bndl)
           .on('dir', function () {}).on('file', function (p) {
@@ -444,13 +447,15 @@
             if (pattMedia.test(p)) {
               bundle.mediaFile = {};
               bundle.mediaFile.encoding = 'BASE64';
-              bundle.mediaFile._filePath = p;
+              bundle.mediaFile._filePath = path.join(path2bndl, p);
+              allFilePaths.push(path.join(path2bndl, p));
             }
 
             // set annotation file path
             if (pattAnnot.test(p)) {
               bundle.annotation = {};
-              bundle.annotation._filePath = p;
+              bundle.annotation._filePath = path.join(path2bndl, p);
+              allFilePaths.push(path.join(path2bndl, p));
             }
 
             // set ssffTrack paths for tracks in ssffTrackDefinitions
@@ -460,8 +465,10 @@
                 bundle.ssffFiles.push({
                   ssffTrackName: wsConnect.dbConfig.ssffTrackDefinitions[i].name,
                   encoding: 'BASE64',
-                  _filePath: p
+                  _filePath: path.join(path2bndl, p)
                 });
+
+                allFilePaths.push(path.join(path2bndl, p));
               }
             }
           }).on('error', function (err) {
@@ -473,32 +480,72 @@
               }
             }), undefined, 0);
           }).on('done', function () {
-            // read mediaFile
-            bundle.mediaFile.data = fs.readFileSync(path.join(path2bndl, bundle.mediaFile._filePath), 'base64');
-            delete bundle.mediaFile._filePath;
 
-            // read annotation file
-            bundle.annotation = JSON.parse(fs.readFileSync(path.join(path2bndl, bundle.annotation._filePath), 'utf8'));
-            delete bundle.annotation._filePath;
+            // check if correct number of files where found
+            if (allFilePaths.length !== 2 + wsConnect.dbConfig.ssffTrackDefinitions.length) {
+              wsConnect.send(JSON.stringify({
+                'callbackID': mJSO.callbackID,
+                'data': bundle,
+                'status': {
+                  'type': 'ERROR',
+                  'message': 'Did not find all files belonging to bundle'
+                }
+              }), undefined, 0);
 
-            for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
-              bundle.ssffFiles[i].data = fs.readFileSync(path.join(path2bndl, bundle.ssffFiles[i]._filePath), 'base64');
-              delete bundle.ssffFiles[i].filePath;
+            } else {
+              // read in files using async.map
+              async.map(allFilePaths, fs.readFile, function (err, results) {
+                if (err) {
+                  log.error('reading bundle components:', err,
+                    '; clientID:', wsConnect.connectionID,
+                    '; clientIP:', wsConnect._socket.remoteAddress);
+
+                  wsConnect.send(JSON.stringify({
+                    'callbackID': mJSO.callbackID,
+                    'data': bundle,
+                    'status': {
+                      'type': 'ERROR',
+                      'message': 'reading bundle components'
+                    }
+                  }), undefined, 0);
+
+                } else {
+                  console.log(results);
+                  var fileIdx;
+
+                  // set media file
+                  fileIdx = allFilePaths.indexOf(bundle.mediaFile._filePath);
+                  bundle.mediaFile.data = results[fileIdx].toString('base64');
+                  delete bundle.mediaFile._filePath;
+
+                  // set annotation file
+                  fileIdx = allFilePaths.indexOf(bundle.annotation._filePath);
+                  bundle.annotation = JSON.parse(results[fileIdx].toString('utf8'));
+                  delete bundle.annotation._filePath;
+
+                  // set ssffTracks
+                  for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
+                    fileIdx = allFilePaths.indexOf(bundle.ssffFiles[i]._filePath);
+                    bundle.ssffFiles[i].data = results[fileIdx].toString('base64');
+                    delete bundle.ssffFiles[i]._filePath;
+                  }
+
+
+                  log.info('Finished reading bundle components. Now returning them.',
+                    '; clientID:', wsConnect.connectionID,
+                    '; clientIP:', wsConnect._socket.remoteAddress);
+
+                  wsConnect.send(JSON.stringify({
+                    'callbackID': mJSO.callbackID,
+                    'data': bundle,
+                    'status': {
+                      'type': 'SUCCESS',
+                      'message': ''
+                    }
+                  }), undefined, 0);
+                }
+              });
             }
-
-            log.info('Finished reading bundle components. Now returning them.',
-              '; clientID:', wsConnect.connectionID,
-              '; clientIP:', wsConnect._socket.remoteAddress);
-
-            wsConnect.send(JSON.stringify({
-              'callbackID': mJSO.callbackID,
-              'data': bundle,
-              'status': {
-                'type': 'SUCCESS',
-                'message': ''
-              }
-            }), undefined, 0);
-
           }).walk();
 
         break;
