@@ -101,26 +101,7 @@ function insertHashedEntry(usrname, pwd, callback) {
     stmt.finalize(callback);
 }
 
-/**
- *
- */
-function checkIfRoot(callback) {
-    db.all("SELECT * FROM users WHERE username='root'", function (err, rows) {
-        if (rows.length !== 1) {
-            console.error('More than one or no root entry found! -> Invalid table!!!');
-        } else {
-            promptTxt = 'Enter root password> ';
-            getUserInput(function (pwd) {
-                res = bcrypt.compareSync(pwd, rows[0].password);
-                if (res) {
-                    callback();
-                } else {
-                    console.error('WRONG ROOT PASSWORD!!!');
-                }
-            });
-        }
-    });
-}
+
 
 /**
  *
@@ -145,23 +126,8 @@ function createNewDB(path) {
 
     function createTable() {
         console.log("INFO: creating users table...");
-        db.run("CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, password TEXT, salt TEXT)", getNewRootPwd);
-    }
-
-    function getNewRootPwd() {
-
-        promptTxt = 'Enter password> ';
-        getUserInput(function (pwd1) {
-
-            promptTxt = 'Reenter password> ';
-            getUserInput(function (pwd2) {
-                if (pwd1 !== pwd2) {
-                    console.log('Passwords where not the same! Please try again...')
-                    getNewRootPwd();
-                } else {
-                    insertHashedEntry('root', pwd1, readAllRows);
-                }
-            });
+        db.run("CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, password TEXT, salt TEXT)", function () {
+            db.close();
         });
     }
 
@@ -175,20 +141,17 @@ function createNewDB(path) {
 function addNewUser(path) {
 
     function addUser() {
-        checkIfRoot(function () {
-            checkIfUsrExist(function () {
-                // body...
-                promptTxt = 'Enter password> ';
-                getUserInput(function (pwd1) {
-                    promptTxt = 'Reenter password> ';
-                    getUserInput(function (pwd2) {
-                        if (pwd1 !== pwd2) {
-                            console.log('Passwords where not the same! Please try again...');
-                            getNewRootPwd();
-                        } else {
-                            insertHashedEntry(username, pwd1, readAllRows);
-                        }
-                    });
+        checkIfUsrExist(function () {
+            promptTxt = 'Enter new password for user ' + username + ' > ';
+            getUserInput(function (pwd1) {
+                promptTxt = 'Reenter new password for user ' + username + ' > ';
+                getUserInput(function (pwd2) {
+                    if (pwd1 !== pwd2) {
+                        console.log('Passwords where not the same! Please try again...');
+                        getNewRootPwd();
+                    } else {
+                        insertHashedEntry(username, pwd1, readAllRows);
+                    }
                 });
             });
         });
@@ -203,11 +166,9 @@ function addNewUser(path) {
 function removeUser(path) {
 
     function rmUsr() {
-        checkIfRoot(function () {
-            var stmt = db.prepare("DELETE FROM users WHERE username='" + username + "'");
-            stmt.run();
-            stmt.finalize(readAllRows);
-        });
+        var stmt = db.prepare("DELETE FROM users WHERE username='" + username + "'");
+        stmt.run();
+        stmt.finalize(readAllRows);
     }
 
     db = new sqlite3.Database(path, rmUsr);
@@ -242,21 +203,29 @@ function preCheckIfExist(path, proceedIfExist, callback) {
 // options passed in
 
 if (option == '--createNewDB') {
+
     preCheckIfExist(dbPath, false, createNewDB);
-} else if (option == '--addNewUser') {
+
+} else if (option == '--addUser') {
+
     username = process.argv[4];
     if (username !== undefined) {
         preCheckIfExist(dbPath, true, addNewUser);
     } else {
         console.error('Unspecified username argument');
     }
+
 } else if (option == '--removeUser') {
+
     username = process.argv[4];
     if (username !== undefined) {
         preCheckIfExist(dbPath, true, removeUser);
     } else {
         console.error('Unspecified username argument');
     }
+
 } else if (option == '--listUsers') {
+
     db = new sqlite3.Database(dbPath, readAllRows);
+
 }
