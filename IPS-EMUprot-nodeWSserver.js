@@ -4,7 +4,7 @@
  *
  * to run:
  *
- *  > node IPS-EMUprot-nodeWSserver.js server_config.json | node_modules/bunyan/binunyan
+ *  > node IPS-EMUprot-nodeWSserver.js server_config.json | node_modules/bunyan/bin/bunyan
  *
  * "server_config.json":
  *
