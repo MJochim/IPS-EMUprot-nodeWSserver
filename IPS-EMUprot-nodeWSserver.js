@@ -42,7 +42,7 @@
   var assert = require('assert');
   var path = require('path');
   var os = require('os');
-  var filewalker = require('filewalker');
+  // var filewalker = require('filewalker');
   var bunyan = require('bunyan');
   var ldap = require('ldapjs');
   var exec = require('child_process').exec;
@@ -121,7 +121,7 @@
   /**
    *
    */
-  function onlyUnique(value, index, self) { 
+  function onlyUnique(value, index, self) {
     return self.indexOf(value) === index;
   }
 
@@ -141,52 +141,49 @@
 
 
     DBconfig.EMUwebAppConfig.perspectives.forEach(function (p) {
-        // tracks in signalCanvases.order
-        p.signalCanvases.order.forEach(function (sco) {
-          allTracks.push(sco);
+      // tracks in signalCanvases.order
+      p.signalCanvases.order.forEach(function (sco) {
+        allTracks.push(sco);
+      });
+      // tracks in signalCanvases.assign
+      if (p.signalCanvases.assign !== undefined) {
+        p.signalCanvases.assign.forEach(function (sca) {
+          allTracks.push(sca.ssffTrackName);
         });
-        // tracks in signalCanvases.assign
-        if (p.signalCanvases.assign !== undefined) {
-          p.signalCanvases.assign.forEach(function (sca) {
-            allTracks.push(sca.ssffTrackName);
+      }
+      // tracks in twoDimCanvases.twoDimDrawingDefinitions
+      if (p.twoDimCanvases !== undefined) {
+        if (p.twoDimCanvases.twoDimDrawingDefinitions !== undefined) {
+          p.twoDimCanvases.twoDimDrawingDefinitions.forEach(function (tddd) {
+            tddd.dots.forEach(function (dot) {
+              allTracks.push(dot.xSsffTrack);
+              allTracks.push(dot.ySsffTrack);
+            });
           });
         }
-        // tracks in twoDimCanvases.twoDimDrawingDefinitions
-        if (p.twoDimCanvases !== undefined) {
-          if (p.twoDimCanvases.twoDimDrawingDefinitions !== undefined) {
-            p.twoDimCanvases.twoDimDrawingDefinitions.forEach(function (tddd) {
-              tddd.dots.forEach(function (dot) {
-                allTracks.push(dot.xSsffTrack);
-                allTracks.push(dot.ySsffTrack);
-              });
-            });
-          }
-        }
-      });
-      // uniq tracks
-      allTracks = allTracks.filter(onlyUnique);
-      // # remove OSCI and SPEC tracks
-      var osciIdx = allTracks.indexOf('OSCI');
-      if(osciIdx > -1){
-        allTracks.splice(osciIdx, 1);
       }
-      var specIdx = allTracks.indexOf('SPEC');
-      if(specIdx > -1){
-        allTracks.splice(specIdx, 1);
-      }
-
-      console.log('-------------------------');
-      console.log(allTracks);
+    });
+    // uniq tracks
+    allTracks = allTracks.filter(onlyUnique);
+    // # remove OSCI and SPEC tracks
+    var osciIdx = allTracks.indexOf('OSCI');
+    if (osciIdx > -1) {
+      allTracks.splice(osciIdx, 1);
+    }
+    var specIdx = allTracks.indexOf('SPEC');
+    if (specIdx > -1) {
+      allTracks.splice(specIdx, 1);
+    }
 
     // get corresponding ssffTrackDefinitions
     var allTrackDefs = [];
     DBconfig.ssffTrackDefinitions.forEach(function (std) {
-      if(allTracks.indexOf(std.name) > -1){
+      if (allTracks.indexOf(std.name) > -1) {
         allTrackDefs.push(std);
       }
     });
 
-    return(allTrackDefs);
+    return (allTrackDefs);
 
   }
 
@@ -637,115 +634,189 @@
 
         var allFilePaths = [];
 
-        // get bundle files
-        filewalker(path2bndl)
-          .on('dir', function () {}).on('file', function (p) {
-            var pattMedia = new RegExp(wsConnect.dbConfig.mediafileExtension + '$');
-            var pattAnnot = new RegExp('_annot.json' + '$');
+        // add media file path
+        var mediaFilePath = path.join(path2bndl, mJSO.name + '.' + wsConnect.dbConfig.mediafileExtension);
+        allFilePaths.push(mediaFilePath);
 
-            // set media file path
-            if (pattMedia.test(p)) {
-              bundle.mediaFile = {};
-              bundle.mediaFile.encoding = 'BASE64';
-              bundle.mediaFile._filePath = path.join(path2bndl, p);
-              allFilePaths.push(path.join(path2bndl, p));
-            }
+        // add annotation file path
+        var annotFilePath = path.join(path2bndl, mJSO.name + '_annot.json');
+        allFilePaths.push(annotFilePath);
 
-            // set annotation file path
-            if (pattAnnot.test(p)) {
-              bundle.annotation = {};
-              bundle.annotation._filePath = path.join(path2bndl, p);
-              allFilePaths.push(path.join(path2bndl, p));
-            }
+        // add ssff file paths
+        var ssffFilePaths = [];
+        wsConnect.allTrackDefsNeededByEMUwebApp.forEach(function (td) {
+          var ssffFilePath = path.join(path2bndl, mJSO.name + '.' + td.fileExtension);
+          allFilePaths.push(ssffFilePath);
+          ssffFilePaths.push(ssffFilePath);
+        });
 
-            // set ssffTrack paths for tracks in ssffTrackDefinitions
-            for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
-              var pattTrack = new RegExp(wsConnect.dbConfig.ssffTrackDefinitions[i].fileExtension + '$');
-              if (pattTrack.test(p)) {
-                bundle.ssffFiles.push({
-                  ssffTrackName: wsConnect.dbConfig.ssffTrackDefinitions[i].name,
-                  encoding: 'BASE64',
-                  _filePath: path.join(path2bndl, p)
-                });
+        console.log(allFilePaths);
+        // read in files using async.map
+        async.map(allFilePaths, fs.readFile, function (err, results) {
+          if (err) {
+            log.error('reading bundle components:', err,
+              '; clientID:', wsConnect.connectionID,
+              '; clientIP:', wsConnect._socket.remoteAddress);
 
-                allFilePaths.push(path.join(path2bndl, p));
-              }
-            }
-          }).on('error', function (err) {
             wsConnect.send(JSON.stringify({
               'callbackID': mJSO.callbackID,
+              'data': bundle,
               'status': {
                 'type': 'ERROR',
-                'message': 'Error getting bundle! Request type was: ' + mJSO.type + ' Error is: ' + err
+                'message': 'reading bundle components'
               }
             }), undefined, 0);
-          }).on('done', function () {
 
-            // check if correct number of files where found
-            if (allFilePaths.length !== 2 + wsConnect.dbConfig.ssffTrackDefinitions.length) {
-              wsConnect.send(JSON.stringify({
-                'callbackID': mJSO.callbackID,
-                'data': bundle,
-                'status': {
-                  'type': 'ERROR',
-                  'message': 'Did not find all files belonging to bundle'
-                }
-              }), undefined, 0);
+          } else {
+            var fileIdx;
 
-            } else {
-              // read in files using async.map
-              async.map(allFilePaths, fs.readFile, function (err, results) {
-                if (err) {
-                  log.error('reading bundle components:', err,
-                    '; clientID:', wsConnect.connectionID,
-                    '; clientIP:', wsConnect._socket.remoteAddress);
+            // set media file
+            fileIdx = allFilePaths.indexOf(mediaFilePath);
+            bundle.mediaFile = {
+              encoding: 'BASE64',
+              data: results[fileIdx].toString('base64')
+            };
 
-                  wsConnect.send(JSON.stringify({
-                    'callbackID': mJSO.callbackID,
-                    'data': bundle,
-                    'status': {
-                      'type': 'ERROR',
-                      'message': 'reading bundle components'
-                    }
-                  }), undefined, 0);
+            // set annotation file
+            fileIdx = allFilePaths.indexOf(annotFilePath);
+            bundle.annotation = JSON.parse(results[fileIdx].toString('utf8'));
 
-                } else {
-                  var fileIdx;
-
-                  // set media file
-                  fileIdx = allFilePaths.indexOf(bundle.mediaFile._filePath);
-                  bundle.mediaFile.data = results[fileIdx].toString('base64');
-                  delete bundle.mediaFile._filePath;
-
-                  // set annotation file
-                  fileIdx = allFilePaths.indexOf(bundle.annotation._filePath);
-                  bundle.annotation = JSON.parse(results[fileIdx].toString('utf8'));
-                  delete bundle.annotation._filePath;
-
-                  // set ssffTracks
-                  for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
-                    fileIdx = allFilePaths.indexOf(bundle.ssffFiles[i]._filePath);
-                    bundle.ssffFiles[i].data = results[fileIdx].toString('base64');
-                    delete bundle.ssffFiles[i]._filePath;
-                  }
-
-
-                  log.info('Finished reading bundle components. Now returning them.',
-                    '; clientID:', wsConnect.connectionID,
-                    '; clientIP:', wsConnect._socket.remoteAddress);
-
-                  wsConnect.send(JSON.stringify({
-                    'callbackID': mJSO.callbackID,
-                    'data': bundle,
-                    'status': {
-                      'type': 'SUCCESS',
-                      'message': ''
-                    }
-                  }), undefined, 0);
-                }
+            // set ssffTracks
+            ssffFilePaths.forEach(function (sfp) {
+              fileIdx = allFilePaths.indexOf(sfp);
+              // extract file ext
+              var fileExt = path.extname(sfp).split('.').pop();
+              bundle.ssffFiles.push({
+                fileExtension: fileExt,
+                encoding: 'BASE64',
+                data: results[fileIdx].toString('base64')
               });
-            }
-          }).walk();
+            });
+
+            log.info('Finished reading bundle components. Now returning them.',
+              '; clientID:', wsConnect.connectionID,
+              '; clientIP:', wsConnect._socket.remoteAddress);
+
+            wsConnect.send(JSON.stringify({
+              'callbackID': mJSO.callbackID,
+              'data': bundle,
+              'status': {
+                'type': 'SUCCESS',
+                'message': ''
+              }
+            }), undefined, 0);
+          }
+        });
+
+        // get bundle files
+        // filewalker(path2bndl)
+        //   .on('dir', function () {}).on('file', function (p) {
+        //     var pattMedia = new RegExp(wsConnect.dbConfig.mediafileExtension + '$');
+        //     var pattAnnot = new RegExp('_annot.json' + '$');
+
+        //     // set media file path
+        //     if (pattMedia.test(p)) {
+        //       bundle.mediaFile = {};
+        //       bundle.mediaFile.encoding = 'BASE64';
+        //       bundle.mediaFile._filePath = path.join(path2bndl, p);
+        //       allFilePaths.push(path.join(path2bndl, p));
+        //     }
+
+        //     // set annotation file path
+        //     if (pattAnnot.test(p)) {
+        //       bundle.annotation = {};
+        //       bundle.annotation._filePath = path.join(path2bndl, p);
+        //       allFilePaths.push(path.join(path2bndl, p));
+        //     }
+
+        //     // set ssffTrack paths for tracks in ssffTrackDefinitions
+        //     for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
+        //       var pattTrack = new RegExp(wsConnect.dbConfig.ssffTrackDefinitions[i].fileExtension + '$');
+        //       if (pattTrack.test(p)) {
+        //         bundle.ssffFiles.push({
+        //           ssffTrackName: wsConnect.dbConfig.ssffTrackDefinitions[i].name,
+        //           encoding: 'BASE64',
+        //           _filePath: path.join(path2bndl, p)
+        //         });
+
+        //         allFilePaths.push(path.join(path2bndl, p));
+        //       }
+        //     }
+        //   }).on('error', function (err) {
+        //     wsConnect.send(JSON.stringify({
+        //       'callbackID': mJSO.callbackID,
+        //       'status': {
+        //         'type': 'ERROR',
+        //         'message': 'Error getting bundle! Request type was: ' + mJSO.type + ' Error is: ' + err
+        //       }
+        //     }), undefined, 0);
+        //   }).on('done', function () {
+
+        //     // check if correct number of files where found
+        //     if (allFilePaths.length !== 2 + wsConnect.dbConfig.ssffTrackDefinitions.length) {
+        //       wsConnect.send(JSON.stringify({
+        //         'callbackID': mJSO.callbackID,
+        //         'data': bundle,
+        //         'status': {
+        //           'type': 'ERROR',
+        //           'message': 'Did not find all files belonging to bundle'
+        //         }
+        //       }), undefined, 0);
+
+        //     } else {
+        //       // read in files using async.map
+        //       async.map(allFilePaths, fs.readFile, function (err, results) {
+        //         if (err) {
+        //           log.error('reading bundle components:', err,
+        //             '; clientID:', wsConnect.connectionID,
+        //             '; clientIP:', wsConnect._socket.remoteAddress);
+
+        //           wsConnect.send(JSON.stringify({
+        //             'callbackID': mJSO.callbackID,
+        //             'data': bundle,
+        //             'status': {
+        //               'type': 'ERROR',
+        //               'message': 'reading bundle components'
+        //             }
+        //           }), undefined, 0);
+
+        //         } else {
+        //           var fileIdx;
+
+        //           // set media file
+        //           fileIdx = allFilePaths.indexOf(bundle.mediaFile._filePath);
+        //           bundle.mediaFile.data = results[fileIdx].toString('base64');
+        //           delete bundle.mediaFile._filePath;
+
+        //           // set annotation file
+        //           fileIdx = allFilePaths.indexOf(bundle.annotation._filePath);
+        //           bundle.annotation = JSON.parse(results[fileIdx].toString('utf8'));
+        //           delete bundle.annotation._filePath;
+
+        //           // set ssffTracks
+        //           for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
+        //             fileIdx = allFilePaths.indexOf(bundle.ssffFiles[i]._filePath);
+        //             bundle.ssffFiles[i].data = results[fileIdx].toString('base64');
+        //             delete bundle.ssffFiles[i]._filePath;
+        //           }
+
+
+        //           log.info('Finished reading bundle components. Now returning them.',
+        //             '; clientID:', wsConnect.connectionID,
+        //             '; clientIP:', wsConnect._socket.remoteAddress);
+
+        //           wsConnect.send(JSON.stringify({
+        //             'callbackID': mJSO.callbackID,
+        //             'data': bundle,
+        //             'status': {
+        //               'type': 'SUCCESS',
+        //               'message': ''
+        //             }
+        //           }), undefined, 0);
+        //         }
+        //       });
+        //     }
+        //   }).walk();
 
         break;
 
