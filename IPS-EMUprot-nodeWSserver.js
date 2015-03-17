@@ -1,6 +1,10 @@
 /**
- * node server that implements the EMU-webApp-websocket-protocol (version 0.0.1)
+ * node server that implements the EMU-webApp-websocket-protocol (version 0.0.2)
  *
+ * to install dependencies:
+ *
+ *  > bower install
+ *  > npm install
  *
  * to run:
  *
@@ -12,7 +16,7 @@
  *
  *    {
  *        "path2emuDBs": 'emuDBs', // path to folder containing the emuDBs
- *        "ssl": true, // true if you want to use ssl (please do!!!)
+ *        "ssl": true, // true if you want to use ssl (it is highly recommended that you do!!!)
  *        "port": 17890, // port you want the websocket server to run on
  *        "ssl_key": "certs/server.key", // path to ssl_key
  *        "ssl_cert": "certs/server.crt", // path to ssl_cert
@@ -21,10 +25,10 @@
  *        "binddn_left": "uid=", // left side of binddn (resulting binddn_left + username + binddn_right)
  *        "binddn_right": ",ou=People,dc=phonetik,dc=uni-muenchen,dc=de", // right side of binddn (resulting binddn_left + username + binddn_right)
  *        "sqlite_db": "IPS-EMUprot-nodeWSserver.DB", // sqlite_db containing users table
- *        "use_git_if_repo_found": true, // automatically commit to git repo in database 
+ *        "use_git_if_repo_found": true, // automatically commit to git repo in database
  *        "filter_bndlList_for_finishedEditing": true // remove all bundles form bundleList where finishedEditing = true returning it to the EMU-webApp
  *    }
- * 
+ *
  * author: Raphael Winkelmann
  */
 
@@ -114,6 +118,77 @@
     server: app
   });
 
+  /**
+   *
+   */
+  function onlyUnique(value, index, self) { 
+    return self.indexOf(value) === index;
+  }
+
+  /**
+   *
+   */
+  function findAllTracksInDBconfigNeededByEMUwebApp(DBconfig) {
+    var allTracks = [];
+
+    // anagestConfig ssffTracks
+    DBconfig.levelDefinitions.forEach(function (ld) {
+      if (ld.anagestConfig !== undefined) {
+        allTracks.push(ld.anagestConfig.verticalPosSsffTrackName);
+        allTracks.push(ld.anagestConfig.velocitySsffTrackName);
+      }
+    });
+
+
+    DBconfig.EMUwebAppConfig.perspectives.forEach(function (p) {
+        // tracks in signalCanvases.order
+        p.signalCanvases.order.forEach(function (sco) {
+          allTracks.push(sco);
+        });
+        // tracks in signalCanvases.assign
+        if (p.signalCanvases.assign !== undefined) {
+          p.signalCanvases.assign.forEach(function (sca) {
+            allTracks.push(sca.ssffTrackName);
+          });
+        }
+        // tracks in twoDimCanvases.twoDimDrawingDefinitions
+        if (p.twoDimCanvases !== undefined) {
+          if (p.twoDimCanvases.twoDimDrawingDefinitions !== undefined) {
+            p.twoDimCanvases.twoDimDrawingDefinitions.forEach(function (tddd) {
+              tddd.dots.forEach(function (dot) {
+                allTracks.push(dot.xSsffTrack);
+                allTracks.push(dot.ySsffTrack);
+              });
+            });
+          }
+        }
+      });
+      // uniq tracks
+      allTracks = allTracks.filter(onlyUnique);
+      // # remove OSCI and SPEC tracks
+      var osciIdx = allTracks.indexOf('OSCI');
+      if(osciIdx > -1){
+        allTracks.splice(osciIdx, 1);
+      }
+      var specIdx = allTracks.indexOf('SPEC');
+      if(specIdx > -1){
+        allTracks.splice(specIdx, 1);
+      }
+
+      console.log('-------------------------');
+      console.log(allTracks);
+
+    // get corresponding ssffTrackDefinitions
+    var allTrackDefs = [];
+    DBconfig.ssffTrackDefinitions.forEach(function (std) {
+      if(allTracks.indexOf(std.name) > -1){
+        allTrackDefs.push(std);
+      }
+    });
+
+    return(allTrackDefs);
+
+  }
 
 
   /**
@@ -286,7 +361,7 @@
           'callbackID': mJSO.callbackID,
           'status': {
             'type': 'ERROR',
-            'message': 'Requested DB does not exist!'
+            'message': 'Requested DB does not exist! The DB has to be specified in the URL: ws://exampleServer:17890/nameOfDB'
           }
         }), undefined, 0);
         return;
@@ -305,7 +380,7 @@
           'callbackID': mJSO.callbackID,
           'data': {
             'protocol': 'EMU-webApp-websocket-protocol',
-            'version': '0.0.1'
+            'version': '0.0.2'
           },
           'status': {
             'type': 'SUCCESS',
@@ -516,6 +591,9 @@
           } else {
 
             wsConnect.dbConfig = JSON.parse(data);
+
+            // figure out which SSFF files should be sent with each bundle
+            wsConnect.allTrackDefsNeededByEMUwebApp = findAllTracksInDBconfigNeededByEMUwebApp(wsConnect.dbConfig);
 
             wsConnect.send(JSON.stringify({
               'callbackID': mJSO.callbackID,
