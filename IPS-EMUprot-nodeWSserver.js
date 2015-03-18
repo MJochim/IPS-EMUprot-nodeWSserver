@@ -70,7 +70,7 @@
   if (process.argv.length === 3) {
     cfg = JSON.parse(fs.readFileSync(process.argv[2]));
   } else {
-    console.error('ERROR: server_config.json has to be given as an argument!!');
+    log.error('ERROR: server_config.json has to be given as an argument!!');
     process.exit(1);
   }
 
@@ -649,7 +649,6 @@
           ssffFilePaths.push(ssffFilePath);
         });
 
-        console.log(allFilePaths);
         // read in files using async.map
         async.map(allFilePaths, fs.readFile, function (err, results) {
           if (err) {
