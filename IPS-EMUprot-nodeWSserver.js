@@ -3,7 +3,6 @@
  *
  * to install dependencies:
  *
- *  > bower install
  *  > npm install
  *
  * to run:
