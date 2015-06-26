@@ -2,7 +2,7 @@
     "path2emuDBs": "emuDBs",
     "ssl": true,
     "port": 17890,
-    "ssl_key": "certs/server.key",
+    "ssl_key": "certs/noPwdServer.key",
     "ssl_cert": "certs/server.crt",
     "use_ldap": true,
     "ldap_address": "ldaps://ldap.phonetik.uni-muenchen.de:636",
