@@ -28,7 +28,7 @@
  *        "filter_bndlList_for_finishedEditing": true // remove all bundles form bundleList where finishedEditing = true returning it to the EMU-webApp
  *    }
  *
- * author: Raphael Winkelmann
+ * @author Raphael Winkelmann
  */
 
 
