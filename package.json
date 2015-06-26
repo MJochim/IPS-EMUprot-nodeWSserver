@@ -3,7 +3,7 @@
     "async": "^0.9.0",
     "bcrypt": "^0.8.1",
     "bunyan": "^1.2.3",
-    "ldapjs": "^0.7.1",
+    "ldapjs": "git://github.com/mcavage/node-ldapjs",
     "q": "^1.1.2",
     "sqlite3": "^3.0.4",
     "ws": "^0.7.1"
