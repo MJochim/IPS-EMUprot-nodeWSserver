@@ -49,6 +49,7 @@
   var sqlite3 = require('sqlite3').verbose();
   var async = require('async');
   var Q = require('q');
+  var jsonlint = require('jsonlint');
 
   // for authentication to work
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -421,6 +422,24 @@
 
           } else {
 
+            var parsedData;
+            // safely parse data:
+            try{
+              parsedData = jsonlint.parse(data);
+            }catch(e){
+              wsConnect.send(JSON.stringify({
+                'callbackID': mJSO.callbackID,
+                'status': {
+                  'type': 'ERROR',
+                  'message': 'Error parsing _bundleList.json: ' + e
+                }
+              }), undefined, 0);
+
+              console.log(e);
+
+              return;
+            }
+
             log.info('found _bndlList.json for user: ', mJSO.userName, ' in: ', wsConnect.upgradeReq.url,
               '; clientID:', wsConnect.connectionID,
               '; clientIP:', wsConnect._socket.remoteAddress);
@@ -454,9 +473,9 @@
                       wsConnect.ID = mJSO.userName;
                       // add bndlList to connection object
                       if (cfg.filter_bndlList_for_finishedEditing) {
-                        wsConnect.bndlList = filterBndlList(JSON.parse(data));
+                        wsConnect.bndlList = filterBndlList(parsedData);
                       } else {
-                        wsConnect.bndlList = JSON.parse(data);
+                        wsConnect.bndlList = parsedData;
                       }
                       wsConnect.bndlListPath = path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json');
 
@@ -499,9 +518,9 @@
                   wsConnect.ID = mJSO.userName;
                   // add bndlList to connection object
                   if (cfg.filter_bndlList_for_finishedEditing) {
-                    wsConnect.bndlList = filterBndlList(JSON.parse(data));
+                    wsConnect.bndlList = filterBndlList(parsedData);
                   } else {
-                    wsConnect.bndlList = JSON.parse(data);
+                    wsConnect.bndlList = parsedData;
                   }
                   wsConnect.bndlListPath = path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json');
 
