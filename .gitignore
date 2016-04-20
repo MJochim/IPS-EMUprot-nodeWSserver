@@ -4,3 +4,6 @@ node_modules/*
 # certificates and keys
 certs/*
 *.DB
+
+# webstorm stuff
+.idea/*
