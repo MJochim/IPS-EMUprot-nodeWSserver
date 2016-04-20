@@ -364,6 +364,45 @@
 				return;
 			}
 
+
+			// Register callbacks for specific message types.
+			// At the same time, this array defines which message types are
+			// allowed.
+			//
+			// Plugins should be able to modify the function pointers.
+			// Should they also be able to add/remove elements?
+			var handlers = {
+				GETPROTOCOL: defaultMessageHandler,
+				DISCONNECTWARNING: defaultMessageHandler,
+				GETDOUSERMANAGEMENT: defaultMessageHandler,
+				LOGONUSER: defaultMessageHandler,
+				GETGLOBALDBCONFIG: defaultMessageHandler,
+				GETBUNDLELIST: defaultMessageHandler,
+				GETBUNDLE: defaultMessageHandler,
+				SAVEBUNDLE: defaultMessageHandler
+			};
+
+			// Check whether mJSO.type is valid and call the respective handler
+			if (
+				handlers.hasOwnProperty(mJSO.type)
+				&& typeof handlers[mJSO.type] === 'function'
+			) {
+				(handlers[mJSO.type])(mJSO, wsConnect);
+			} else {
+				wsConnect.send(JSON.stringify({
+					'callbackID': mJSO.callbackID,
+					'status': {
+						'type': 'ERROR',
+						'message': 'Sent request type that is unknown to server! Request type was: ' + mJSO.type
+					}
+				}), undefined, 0);
+			}
+		});
+
+	});
+
+	function defaultMessageHandler(mJSO, wsConnect) {
+		if (true) { // This is only here so the diff stays clear and comprehensible
 			switch (mJSO.type) {
 
 				// GETPROTOCOL method
@@ -835,19 +874,7 @@
 					}), undefined, 0);
 
 					break;
-
-				default:
-					wsConnect.send(JSON.stringify({
-						'callbackID': mJSO.callbackID,
-						'status': {
-							'type': 'ERROR',
-							'message': 'Sent request type that is unknown to server! Request type was: ' + mJSO.type
-						}
-					}), undefined, 0);
 			}
-
-		});
-
-	});
-
+		}
+	}
 }());
