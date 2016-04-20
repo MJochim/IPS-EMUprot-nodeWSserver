@@ -339,6 +339,8 @@
 
 		// message event
 		wsConnect.on('message', function (message) {
+			// @todo fs.existsSync has been deprecated
+			// @todo *important* escape user supplied url
 			var res = fs.existsSync(cfg.path2emuDBs + wsConnect.upgradeReq.url);
 
 			var mJSO = JSON.parse(message);
@@ -381,6 +383,39 @@
 				GETBUNDLE: defaultMessageHandler,
 				SAVEBUNDLE: defaultMessageHandler
 			};
+
+
+			// Check database-specific plugin config and load plugins
+			try {
+				var pluginConfigPath = path.join(wsConnect.path2db, 'node_server_plugins.json');
+				var pluginsConfig = JSON.parse(fs.readFileSync(pluginConfigPath));
+				/*
+				pluginsConfig might be an object like this:
+				{
+					"requiredPlugins": [
+						"dynamic-bundles",
+						"add-bundle-client-side"
+					],
+					"optionalPlugins": [
+						'let-it-snow'
+					]
+				};
+				*/
+				if (pluginsConfig.requiredPlugins instanceof Array) {
+					for (var i = 0; i < pluginsConfig.requiredPlugins.length) {
+						// @ todo check if plugin exists and load it
+					}
+				}
+			} catch (err) {
+				if (err.code === 'ENOENT') {
+					// ENOENT: file not found - This probably does not need logging
+					//log.info('Database does not contain plugin configuration');
+				} else {
+					// @todo add context information to message?
+					log.error('Error while loading plugin configuration:', err.message);
+				}
+			}
+
 
 			// Check whether mJSO.type is valid and call the respective handler
 			if (
