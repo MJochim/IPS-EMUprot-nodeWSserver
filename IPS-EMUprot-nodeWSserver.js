@@ -142,20 +142,26 @@
 	};
 
 	/**
+	 * Look for a plugin configuration file in database and load the plugins.
 	 *
-	 * @param wsConnect
+	 * The file must be named nodejs_server_plugins.json and reside at the
+	 * db's top level directory. It must contain a JSON array of strings.
+	 *
+	 * @param wsConnect The connection object to attach the plugin to.
 	 */
-	function loadPlugins (wsConnect) {
-		// Check database-specific plugin config and load plugins
+	function loadAllPlugins(wsConnect) {
 		try {
+			// Read plugin configuration file
 			var pluginConfigPath = path.join(wsConnect.path2db, 'nodejs_server_plugins.json');
-			var pluginsConfig = JSON.parse(fs.readFileSync(pluginConfigPath));
-			// pluginsConfig is an array of strings with plugins' names
+			var pluginList = JSON.parse(fs.readFileSync(pluginConfigPath));
 
-			if (pluginsConfig.requiredPlugins instanceof Array) {
-				for (var i = 0; i < pluginsConfig.requiredPlugins.length) {
-					// @ todo check if plugin exists and load it
+			// Load plugins
+			if (pluginList instanceof Array) {
+				for (var i = 0; i < pluginList.length; ++i) {
+					loadPlugin(wsConnect, pluginList[i]);
 				}
+			} else {
+				log.error('Plugin config file is corrupt: ', pluginConfigPath);
 			}
 		} catch (err) {
 			if (err.code === 'ENOENT') {
@@ -168,6 +174,43 @@
 		}
 
 	}
+
+	/**
+	 *
+	 * @param wsConnect
+	 * @param pluginName
+	 */
+	function loadPlugin(wsConnect, pluginName) {
+		try {
+			var plugin = require(path.join('.', 'plugins', pluginName));
+
+			var pluginMessageHandlers = plugin.pluginMessageHandlers;
+
+			if (typeof pluginMessageHandlers !== 'object') {
+				throw new Error('Plugin does not export pluginMessageHandlers object');
+			}
+		} catch (error) {
+			log.info('Could not load plugin:', pluginName, '; reason:', error.message);
+		}
+
+		try {
+			if (typeof pluginMessageHandlers.GETBUNDLELIST === 'function') {
+				wsConnect.messageHandlers.GETBUNDLELIST = pluginMessageHandlers.GETBUNDLELIST;
+			}
+
+			if (typeof pluginMessageHandlers.GETBUNDLE === 'function') {
+				wsConnect.messageHandlers.GETBUNDLE = pluginMessageHandlers.GETBUNDLE;
+			}
+
+			if (typeof pluginMessageHandlers.SAVEBUNDLE === 'function') {
+				wsConnect.messageHandlers.SAVEBUNDLE = pluginMessageHandlers.SAVEBUNDLE;
+			}
+		} catch (error) {
+			log.info('Error loading plugin (it may have been loaded' +
+				' partially:', pluginName, '; reason:', error.message);
+		}
+	}
+
 
 	/**
 	 *
