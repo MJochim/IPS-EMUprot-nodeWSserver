@@ -50,6 +50,7 @@
 	var async = require('async');
 	var Q = require('q');
 	var jsonlint = require('jsonlint');
+	var url = require('url');
 
 	// for authentication to work
 	process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -211,6 +212,36 @@
 		}
 	}
 
+	function authoriseConnectionForDatabase(wsConnect, dbName) {
+		wsConnect.path2db = getDatabasePath(dbName);
+	}
+
+	function parseURL(urlString) {
+		var urlObj = url.parse(urlString, true);
+		var dbName = urlObj.pathname;
+		var accessToken = urlObj.query.accessToken;
+
+		// Make sure the requested DB path has no .. or . in it, so it
+		// cannot escape from our database directory
+		dbName = path.normalize(dbName);
+
+		// Construct path to requested database
+		var path2db = path.normalize(path.join(cfg.path2emuDBs, dbName));
+
+		// Make sure we are not trying to point at the root dir of all
+		// databases
+		if (path2db === path.normalize(cfg.path2emuDBs)) {
+			throw new Error('Invalid database specified');
+		}
+
+		// This will throw if we cannot Read and eXecute the db path
+		fs.accessSync(path2db, fs.R_OK | fs.X_OK);
+
+		return {
+			path2db: path2db,
+			accessToken: accessToken
+		};
+	}
 
 	/**
 	 *
@@ -415,7 +446,15 @@
 			'; clientID:', wsConnect.connectionID,
 			'; clientIP:', wsConnect._socket.remoteAddress);
 
-		// Make connection-specific message handlers by copying the default ones
+		// The connection is initially not connected with a database.
+		// If this variable is set to an actual path, it is assumed that the
+		// connection has been authorised to use the respective database.
+		// It is therefore only changed after a successful LOGONUSER.
+		wsConnect.path2db = undefined;
+
+		// a set of pointers to event handler functions.
+		// they reflect either default behaviour or database-specific plugins.
+		// they are only changed after a successful LOGONUSER.
 		wsConnect.messageHandlers = {};
 		Object.assign(wsConnect.handlers, defaultMessageHandlers);
 
@@ -437,31 +476,30 @@
 
 		// message event
 		wsConnect.on('message', function (message) {
-			// @todo fs.existsSync has been deprecated
-			// @todo *important* escape user supplied url
-			var res = fs.existsSync(cfg.path2emuDBs + wsConnect.upgradeReq.url);
-
 			var mJSO = JSON.parse(message);
 
 			log.info('request/message type:', mJSO.type,
 				'; clientID:', wsConnect.connectionID,
 				'; clientIP:', wsConnect._socket.remoteAddress);
 
-			if (res && wsConnect.upgradeReq.url !== '/') {
-				wsConnect.path2db = path.normalize(path.join(cfg.path2emuDBs, wsConnect.upgradeReq.url));
-			} else {
-				log.info('requested DB does not exist!',
-					'; clientID:', wsConnect.connectionID,
-					'; clientIP:', wsConnect._socket.remoteAddress);
+			// If the connection has not been authorised to use a database,
+			// allow only generic protocol functions to be used.
+			if (typeof wsConnect.path2db === 'undefined') {
+				if (
+					mJSO.type !== 'GETPROTOCOL'
+					&& mJSO.type !== 'LOGONUSER'
+					&& mJSO.type !== 'GETDOUSERMANAGEMENT'
+				) {
+					wsConnect.send(JSON.stringify({
+						'callbackID': mJSO.callbackID,
+						'status': {
+							'type': 'ERROR',
+							'message': 'Sent request type that is only allowed after logon! Request type was: ' + mJSO.type
+						}
+					}), undefined, 0);
 
-				wsConnect.send(JSON.stringify({
-					'callbackID': mJSO.callbackID,
-					'status': {
-						'type': 'ERROR',
-						'message': 'Requested DB does not exist! The DB has to be specified in the URL: ws://exampleServer:17890/nameOfDB'
-					}
-				}), undefined, 0);
-				return;
+					return;
+				}
 			}
 
 
@@ -522,6 +560,32 @@
 	}
 
 	function defaultHandlerLogonUser(mJSO, wsConnect) {
+		// First find out what database the client wants to be authorised for
+		// for and whether an accessToken was provided
+		try {
+			var request = parseURL(wsConnect.upgradeReq.url);
+		} catch (error) {
+			log.info('requested DB does not exist or is inaccessible!',
+				'; clientID:', wsConnect.connectionID,
+				'; clientIP:', wsConnect._socket.remoteAddress);
+
+			wsConnect.send(JSON.stringify({
+				'callbackID': mJSO.callbackID,
+				'status': {
+					'type': 'ERROR',
+					'message': 'Requested DB does not exist! The DB has to be specified in the URL: ws://exampleServer:17890/nameOfDB'
+				}
+			}), undefined, 0);
+			return;
+		}
+
+		// Check whether user
+
+
+
+
+		// @todo call loadAllPlugins(wsConnect) when logon was successful
+
 		fs.readFile(path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json'), 'utf8', function (err, data) {
 			if (err) {
 
@@ -701,6 +765,7 @@
 	}
 
 	function defaultHandlerGetGlobalDBConfig(mJSO, wsConnect) {
+		// @todo do not use url here
 		var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.upgradeReq.url + '_DBconfig.json'));
 		fs.readFile(dbConfigPath, 'utf8', function (err, data) {
 			if (err) {
