@@ -148,35 +148,47 @@
 	 * The file must be named nodejs_server_plugins.json and reside at the
 	 * db's top level directory. It must contain a JSON array of strings.
 	 *
+	 * @throws When plugin configuration cannot be found or is corrupt.
+	 * @throws When loadPlugin() fails for one of the plugins.
 	 * @param wsConnect The connection object to attach the plugin to.
 	 */
 	function loadAllPlugins(wsConnect) {
-		try {
-			// Read plugin configuration file
-			var pluginConfigPath = path.join(wsConnect.path2db, 'nodejs_server_plugins.json');
-			var pluginList = JSON.parse(fs.readFileSync(pluginConfigPath));
+		// Read plugin configuration file
+		var pluginConfigPath = path.join(wsConnect.path2db, 'nodejs_server_plugins.json');
 
-			// Load plugins
-			if (pluginList instanceof Array) {
-				for (var i = 0; i < pluginList.length; ++i) {
-					loadPlugin(wsConnect, pluginList[i]);
-				}
-			} else {
-				log.error('Plugin config file is corrupt: ', pluginConfigPath);
-			}
+		try {
+			var file = fs.readFileSync(pluginConfigPath);
+			var pluginList = JSON.parse();
 		} catch (err) {
-			if (err.code === 'ENOENT') {
-				// ENOENT: file not found - This probably does not need logging
-				//log.info('Database does not contain plugin configuration');
-			} else {
-				// @todo add context information to message?
-				log.error('Error while loading plugin configuration:', err.message);
+			// ENOENT means that the file has not been found, which in turn
+			// means that no plugins have been configured. This is not critical.
+			if (err.code === 'ENONENT') {
+				return;
 			}
+
+			// Every other error is critical and should lead to the DB not
+			// being accessible
+			throw new Error('Plugin config file could not be read: ', +pluginConfigPath);
 		}
 
+		// Load plugins
+		if (pluginList instanceof Array) {
+			for (var i = 0; i < pluginList.length; ++i) {
+				if (typeof pluginList[i] === 'string') {
+					// loadPlugin might throw but this is deliberately not
+					// caught at this point
+					loadPlugin(wsConnect, pluginList[i]);
+				} else {
+					throw new Error('Plugin config file is corrupt: ' + pluginConfigPath);
+				}
+			}
+		} else {
+			throw new Error('Plugin config file is corrupt: ' + pluginConfigPath);
+		}
 	}
 
 	/**
+	 * @todo this MUST throw when loading the plugin fails
 	 *
 	 * @param wsConnect
 	 * @param pluginName
@@ -212,14 +224,29 @@
 		}
 	}
 
-	function authoriseConnectionForDatabase(wsConnect, dbName) {
-		wsConnect.path2db = getDatabasePath(dbName);
-	}
-
+	/**
+	 * Parse a URL into path and query string. This is used whenever a
+	 * connection is established. Additionally, check whether the path
+	 * resolves to a readable directory. (It is not checked whether
+	 * the directory actually contains a database.)
+	 *
+	 * Returns an object with the properties path2db and query. path2db is
+	 * the combination of cfg.path2emuDBs and the URL's path component.
+	 * query is an object containing the key value pairs from the URL's
+	 * query string.
+	 *
+	 * WARNING The parameters in query are not escaped or otherwise validated.
+	 *
+	 * @throws When the path specified in `urlString` points to a
+	 * non-existent or non-readable directory.
+	 * @throws When the path specified in `urlString` uses .. to point
+	 * outside of the root dir for databases.
+	 * @param urlString The URL to parse
+	 * @returns {"path2db": string, "query": object}
+	 */
 	function parseURL(urlString) {
 		var urlObj = url.parse(urlString, true);
 		var dbName = urlObj.pathname;
-		var accessToken = urlObj.query.accessToken;
 
 		// Make sure the requested DB path has no .. or . in it, so it
 		// cannot escape from our database directory
@@ -239,7 +266,7 @@
 
 		return {
 			path2db: path2db,
-			accessToken: accessToken
+			query: urlObj.query
 		};
 	}
 
@@ -439,25 +466,67 @@
 	// handle ws server connections
 
 	wss.on('connection', function (wsConnect) {
-		// append to clients
+		// generate uuid for connection
 		wsConnect.connectionID = generateUUID();
-		clients.push(wsConnect);
+
+		// log connection
 		log.info('new client connected',
 			'; clientID:', wsConnect.connectionID,
 			'; clientIP:', wsConnect._socket.remoteAddress);
 
-		// The connection is initially not connected with a database.
-		// If this variable is set to an actual path, it is assumed that the
-		// connection has been authorised to use the respective database.
-		// It is therefore only changed after a successful LOGONUSER.
-		wsConnect.path2db = undefined;
+		// Has the user been authorised to use the database they requested?
+		wsConnect.authorised = false;
 
-		// a set of pointers to event handler functions.
-		// they reflect either default behaviour or database-specific plugins.
-		// they are only changed after a successful LOGONUSER.
+		// Parse URL and save which database the client requests to access.
+		// Also save any query parameters. WARNING The query parameters are
+		// stored in wsConnect.urlQuery WITHOUT BEING ESCAPED OR VALIDATED.
+		try {
+			var urlParams = parseURL(wsConnect.upgradeReq.url);
+		} catch (error) {
+			wsConnect.send(JSON.stringify({
+				'callbackID': '', // @todo is it okay to send empty callbackID?
+				'status': {
+					'type': 'ERROR',
+					'message': 'The requested database is not readable'
+				}
+			}), undefined, 0);
+
+			wsConnect.terminate();
+			return;
+		}
+		wsConnect.path2db = urlParams.path2db;
+		wsConnect.urlQuery = urlParams.query;
+
+		// A set of pointers to event handler functions.
+		// They initially reflect default behaviour and may be
+		// changed when database-specific plugins are loaded.
 		wsConnect.messageHandlers = {};
 		Object.assign(wsConnect.handlers, defaultMessageHandlers);
 
+		// load database-specific plugins
+		try {
+			loadAllPlugins(wsConnect);
+		} catch (error) {
+			// It was not possible to load all configured plugins
+			wsConnect.send(JSON.stringify({
+				'callbackID': '', // @todo is it okay to send empty callbackID?
+				'status': {
+					'type': 'ERROR',
+					'message': 'The requested database could not be loaded'
+				}
+			}), undefined, 0);
+
+			wsConnect.terminate();
+			return;
+		}
+
+		// @todo offer onConnect hook for plugins?
+
+		// append new connection to client list
+		clients.push(wsConnect);
+
+		/////////////////////////////////////
+		// connection-specific event handlers
 
 		// close event
 		wsConnect.on('close', function (message) {
@@ -484,7 +553,7 @@
 
 			// If the connection has not been authorised to use a database,
 			// allow only generic protocol functions to be used.
-			if (typeof wsConnect.path2db === 'undefined') {
+			if (wsConnect.authorised !== true) {
 				if (
 					mJSO.type !== 'GETPROTOCOL'
 					&& mJSO.type !== 'LOGONUSER'
@@ -525,7 +594,6 @@
 				}), undefined, 0);
 			}
 		});
-
 	});
 
 
@@ -580,8 +648,6 @@
 		}
 
 		// Check whether user
-
-
 
 
 		// @todo call loadAllPlugins(wsConnect) when logon was successful
@@ -761,7 +827,6 @@
 				}
 			}
 		});
-
 	}
 
 	function defaultHandlerGetGlobalDBConfig(mJSO, wsConnect) {
