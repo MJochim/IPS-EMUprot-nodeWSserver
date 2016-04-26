@@ -126,7 +126,7 @@
 	 * message is rejected as invalid. If there is, the respective handler
 	 * function is called.
 	 *
-	 * Plugins are allowed to modify the handler functions for a number of
+	 * Plugins are allowed to override the handler functions for a number of
 	 * request types.
 	 */
 	var defaultMessageHandlers = {
@@ -136,7 +136,8 @@
 		LOGONUSER: defaultHandlerLogonUser,
 		GETGLOBALDBCONFIG: defaultHandlerGetGlobalDBConfig,
 
-		// The following can be modified by plugins
+		// The following can be overridden by plugins
+		// @todo finalise this list
 		GETBUNDLELIST: defaultHandlerGetBundleList,
 		GETBUNDLE: defaultHandlerGetBundle,
 		SAVEBUNDLE: defaultHandlerSaveBundle
@@ -188,10 +189,12 @@
 	}
 
 	/**
-	 * @todo this MUST throw when loading the plugin fails
+	 * Load a specific named plugin and attach the event handlers it exports
+	 * to a given connection.
 	 *
-	 * @param wsConnect
-	 * @param pluginName
+	 * @throws When plugin cannot be loaded.
+	 * @param wsConnect The connection to attach the plugin's event handlers to
+	 * @param pluginName The name of the plugin to be loaded
 	 */
 	function loadPlugin(wsConnect, pluginName) {
 		try {
@@ -204,9 +207,11 @@
 			}
 		} catch (error) {
 			log.info('Could not load plugin:', pluginName, '; reason:', error.message);
+			throw error;
 		}
 
 		try {
+			// @todo adapt this to finalised list of overridable functions
 			if (typeof pluginMessageHandlers.GETBUNDLELIST === 'function') {
 				wsConnect.messageHandlers.GETBUNDLELIST = pluginMessageHandlers.GETBUNDLELIST;
 			}
@@ -221,6 +226,7 @@
 		} catch (error) {
 			log.info('Error loading plugin (it may have been loaded' +
 				' partially:', pluginName, '; reason:', error.message);
+			throw error;
 		}
 	}
 
@@ -239,7 +245,7 @@
 	 *
 	 * @throws When the path specified in `urlString` points to a
 	 * non-existent or non-readable directory.
-	 * @throws When the path specified in `urlString` uses .. to point
+	 * @throws When the path specified in `urlString` uses ".." to point
 	 * outside of the root dir for databases.
 	 * @param urlString The URL to parse
 	 * @returns {"path2db": string, "query": object}
@@ -496,6 +502,8 @@
 		}
 		wsConnect.path2db = urlParams.path2db;
 		wsConnect.urlQuery = urlParams.query;
+		// Extract last component of path2db - this is the db's name
+		wsConnect.dbName = path.basename(urlParams.path2db);
 
 		// A set of pointers to event handler functions.
 		// They initially reflect default behaviour and may be
@@ -520,7 +528,7 @@
 			return;
 		}
 
-		// @todo offer onConnect hook for plugins?
+		// @todo offer onConnect hook for plugins? - otherwise GETPROTOCOL will be misused for the reason
 
 		// append new connection to client list
 		clients.push(wsConnect);
@@ -628,30 +636,6 @@
 	}
 
 	function defaultHandlerLogonUser(mJSO, wsConnect) {
-		// First find out what database the client wants to be authorised for
-		// for and whether an accessToken was provided
-		try {
-			var request = parseURL(wsConnect.upgradeReq.url);
-		} catch (error) {
-			log.info('requested DB does not exist or is inaccessible!',
-				'; clientID:', wsConnect.connectionID,
-				'; clientIP:', wsConnect._socket.remoteAddress);
-
-			wsConnect.send(JSON.stringify({
-				'callbackID': mJSO.callbackID,
-				'status': {
-					'type': 'ERROR',
-					'message': 'Requested DB does not exist! The DB has to be specified in the URL: ws://exampleServer:17890/nameOfDB'
-				}
-			}), undefined, 0);
-			return;
-		}
-
-		// Check whether user
-
-
-		// @todo call loadAllPlugins(wsConnect) when logon was successful
-
 		fs.readFile(path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json'), 'utf8', function (err, data) {
 			if (err) {
 
@@ -718,6 +702,9 @@
 										'; clientID:', wsConnect.connectionID,
 										'; clientIP:', wsConnect._socket.remoteAddress);
 
+									// mark connection as authorised for the
+									// requested db
+									wsConnect.authorised = true;
 									// add ID to connection object
 									wsConnect.ID = mJSO.userName;
 									// add bndlList to connection object
@@ -762,6 +749,9 @@
 								'; clientID:', wsConnect.connectionID,
 								'; clientIP:', wsConnect._socket.remoteAddress);
 
+							// mark connection as authorised for the
+							// requested db
+							wsConnect.authorised = true;
 							// add ID to connection object
 							wsConnect.ID = mJSO.userName;
 							// add bndlList to connection object
@@ -794,6 +784,9 @@
 								'; clientID:', wsConnect.connectionID,
 								'; clientIP:', wsConnect._socket.remoteAddress);
 
+							// mark connection as authorised for the
+							// requested db
+							wsConnect.authorised = true;
 							// add ID to connection object
 							wsConnect.ID = mJSO.userName;
 							// add bndlList to connection object
@@ -830,8 +823,7 @@
 	}
 
 	function defaultHandlerGetGlobalDBConfig(mJSO, wsConnect) {
-		// @todo do not use url here
-		var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.upgradeReq.url + '_DBconfig.json'));
+		var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.dbName + '_DBconfig.json'));
 		fs.readFile(dbConfigPath, 'utf8', function (err, data) {
 			if (err) {
 
