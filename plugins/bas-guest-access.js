@@ -37,13 +37,34 @@ function emptyErrorResponse(mJSO, wsConnect) {
 }
 
 function pluginHandlerGetProtocol(mJSO, wsConnect) {
-	// check authorization token in wsConnect.query.authToken
-	// ...
-	// and set wsConnect.authorised = true
+	// @todo GETPROTOCOL just isnt the right place for this. we should have an onConnection hook
+	var authToken = wsConnect.urlQuery.authToken;
+	var bundleListPath = path.join(
+		wsConnect.path2db,
+		path.normalize(authToken)
+	);
 
+	fs.readFile(bundleListPath, 'utf8', function (err, data) {
+		if (err) {
+			sendMessage(wsConnect, mJSO.callbackID, false, 'Invalid auth token');
+		} else {
+			log.info('found _bndlList.json for auth token: ', authToken, ' in: ', wsConnect.path2db,
+				'; clientID:', wsConnect.connectionID,
+				'; clientIP:', wsConnect._socket.remoteAddress);
 
-	// Call original event handler
-	defaultHandlerGetProtocol(mJSO, wsConnect);
+			try {
+				// safely parse data:
+				var parsedData = jsonlint.parse(data);
+				wsConnect.bndlList = parsedData;
+
+				// Call original event handler
+				defaultHandlerGetProtocol(mJSO, wsConnect);
+			} catch (error) {
+				sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
+					' parsing _bundleList.json: ' + error);
+			}
+		}
+	});
 }
 
 function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
