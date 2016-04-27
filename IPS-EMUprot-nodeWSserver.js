@@ -489,14 +489,8 @@
 		try {
 			var urlParams = parseURL(wsConnect.upgradeReq.url);
 		} catch (error) {
-			wsConnect.send(JSON.stringify({
-				'callbackID': '', // @todo is it okay to send empty callbackID?
-				'status': {
-					'type': 'ERROR',
-					'message': 'The requested database is not readable'
-				}
-			}), undefined, 0);
-
+			// @todo is it okay to send empty callbackID?
+			sendMessage(wsConnect, '', false, 'The requested database is not readable');
 			wsConnect.terminate();
 			return;
 		}
@@ -516,14 +510,8 @@
 			loadAllPlugins(wsConnect);
 		} catch (error) {
 			// It was not possible to load all configured plugins
-			wsConnect.send(JSON.stringify({
-				'callbackID': '', // @todo is it okay to send empty callbackID?
-				'status': {
-					'type': 'ERROR',
-					'message': 'The requested database could not be loaded'
-				}
-			}), undefined, 0);
-
+			// @todo is it okay to send empty callbackID?
+			sendMessage(wsConnect, '', false, 'The requested database could not be loaded');
 			wsConnect.terminate();
 			return;
 		}
@@ -567,14 +555,9 @@
 					&& mJSO.type !== 'LOGONUSER'
 					&& mJSO.type !== 'GETDOUSERMANAGEMENT'
 				) {
-					wsConnect.send(JSON.stringify({
-						'callbackID': mJSO.callbackID,
-						'status': {
-							'type': 'ERROR',
-							'message': 'Sent request type that is only allowed after logon! Request type was: ' + mJSO.type
-						}
-					}), undefined, 0);
-
+					sendMessage(wsConnect, mJSO.callbackID, false, 'Sent' +
+						' request type that is only allowed after logon!' +
+						' Request type was: ' + mJSO.type);
 					return;
 				}
 			}
@@ -593,13 +576,8 @@
 						'; error message: ', err.message);
 				}
 			} else {
-				wsConnect.send(JSON.stringify({
-					'callbackID': mJSO.callbackID,
-					'status': {
-						'type': 'ERROR',
-						'message': 'Sent request type that is unknown to server! Request type was: ' + mJSO.type
-					}
-				}), undefined, 0);
+				sendMessage(wsConnect, mJSO.callbackID, false, 'Sent request' +
+					' type that is unknown to server! Request type was: ' + mJSO.type);
 			}
 		});
 	});
@@ -610,29 +588,14 @@
 			'; clientID:', wsConnect.connectionID,
 			'; clientIP:', wsConnect._socket.remoteAddress);
 
-		wsConnect.send(JSON.stringify({
-			'callbackID': mJSO.callbackID,
-			'data': {
-				'protocol': 'EMU-webApp-websocket-protocol',
-				'version': '0.0.2'
-			},
-			'status': {
-				'type': 'SUCCESS',
-				'message': ''
-			}
-		}), undefined, 0);
+		sendMessage(wsConnect, mJSO.callbackID, true, '', {
+			'protocol': 'EMU-webApp-websocket-protocol',
+			'version': '0.0.2'
+		});
 	}
 
 	function defaultHandlerGetDoUserManagement(mJSO, wsConnect) {
-		wsConnect.send(JSON.stringify({
-			'callbackID': mJSO.callbackID,
-			'data': 'YES',
-			'status': {
-				'type': 'SUCCESS',
-				'message': ''
-			}
-		}), undefined, 0);
-
+		sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
 	}
 
 	function defaultHandlerLogonUser(mJSO, wsConnect) {
@@ -644,15 +607,8 @@
 					'; clientIP:', wsConnect._socket.remoteAddress);
 
 				// handle wrong user name
-				wsConnect.send(JSON.stringify({
-					'callbackID': mJSO.callbackID,
-					'data': 'BADUSERNAME',
-					'status': {
-						'type': 'SUCCESS',
-						'message': ''
-					}
-				}), undefined, 0);
-
+				// @todo is this indeed a success?
+				sendMessage(wsConnect, mJSO.callbackID, true, '', 'BADUSERNAME');
 			} else {
 
 				var parsedData;
@@ -660,13 +616,8 @@
 				try {
 					parsedData = jsonlint.parse(data);
 				} catch (e) {
-					wsConnect.send(JSON.stringify({
-						'callbackID': mJSO.callbackID,
-						'status': {
-							'type': 'ERROR',
-							'message': 'Error parsing _bundleList.json: ' + e
-						}
-					}), undefined, 0);
+					sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
+						' parsing _bundleList.json: ' + e);
 
 					console.log(e);
 
@@ -715,29 +666,16 @@
 									}
 									wsConnect.bndlListPath = path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json');
 
-									wsConnect.send(JSON.stringify({
-										'callbackID': mJSO.callbackID,
-										'data': 'LOGGEDON',
-										'status': {
-											'type': 'SUCCESS',
-											'message': ''
-										}
-									}), undefined, 0);
-
+									sendMessage(wsConnect, mJSO.callbackID, true, '', 'LOGGEDON');
 								} else {
-
 									log.info("user not found in SQLiteDB",
 										'; clientID:', wsConnect.connectionID,
 										'; clientIP:', wsConnect._socket.remoteAddress);
 
-									wsConnect.send(JSON.stringify({
-										'callbackID': mJSO.callbackID,
-										'data': 'Can\'t log on with given credentials',
-										'status': {
-											'type': 'SUCCESS',
-											'message': ''
-										}
-									}), undefined, 0);
+									// @todo is this indeed a success?
+									// @todo data should be in message is it
+									//       is not machine-readable, i'd say
+									sendMessage(wsConnect, mJSO.callbackID, true, '', 'Can\'t log on with given credentials');
 								}
 							});
 
@@ -763,15 +701,7 @@
 							wsConnect.bndlListPath = path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json');
 
 							// reply
-							wsConnect.send(JSON.stringify({
-								'callbackID': mJSO.callbackID,
-								'data': 'LOGGEDON',
-								'status': {
-									'type': 'SUCCESS',
-									'message': ''
-								}
-							}), undefined, 0);
-
+							sendMessage(wsConnect, mJSO.callbackID, true, '', 'LOGGEDON');
 						}
 					});
 				} else {
@@ -792,29 +722,15 @@
 							// add bndlList to connection object
 							wsConnect.bndlList = JSON.parse(data);
 
-							wsConnect.send(JSON.stringify({
-								'callbackID': mJSO.callbackID,
-								'data': 'LOGGEDON',
-								'status': {
-									'type': 'SUCCESS',
-									'message': ''
-								}
-							}), undefined, 0);
-
+							sendMessage(wsConnect, mJSO.callbackID, true, '', 'LOGGEDON');
 						} else {
 
 							log.info("user not found in SQLiteDB",
 								'; clientID:', wsConnect.connectionID,
 								'; clientIP:', wsConnect._socket.remoteAddress);
 
-							wsConnect.send(JSON.stringify({
-								'callbackID': mJSO.callbackID,
-								'data': 'Can\'t log on with given credentials',
-								'status': {
-									'type': 'SUCCESS',
-									'message': ''
-								}
-							}), undefined, 0);
+							// @todo is this indeed a success?
+							sendMessage(wsConnect, mJSO.callbackID, true, '', 'Can\'t log on with given credentials');
 						}
 					});
 				}
@@ -831,13 +747,7 @@
 					'; clientID:', wsConnect.connectionID,
 					'; clientIP:', wsConnect._socket.remoteAddress);
 
-				wsConnect.send(JSON.stringify({
-					'callbackID': mJSO.callbackID,
-					'status': {
-						'type': 'ERROR',
-						'message': err
-					}
-				}), undefined, 0);
+				sendMessage(wsConnect, mJSO.callbackID, false, err);
 
 				return;
 
@@ -848,29 +758,14 @@
 				// figure out which SSFF files should be sent with each bundle
 				wsConnect.allTrackDefsNeededByEMUwebApp = findAllTracksInDBconfigNeededByEMUwebApp(wsConnect.dbConfig);
 
-				wsConnect.send(JSON.stringify({
-					'callbackID': mJSO.callbackID,
-					'data': wsConnect.dbConfig,
-					'status': {
-						'type': 'SUCCESS',
-						'message': ''
-					}
-				}), undefined, 0);
-
+				sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.dbConfig);
 			}
 		});
 
 	}
 
 	function defaultHandlerGetBundleList(mJSO, wsConnect) {
-		wsConnect.send(JSON.stringify({
-			'callbackID': mJSO.callbackID,
-			'data': wsConnect.bndlList,
-			'status': {
-				'type': 'SUCCESS',
-				'message': ''
-			}
-		}), undefined, 0);
+		sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.bndlList);
 	}
 
 	function defaultHandlerGetBundle(mJSO, wsConnect) {
@@ -908,15 +803,9 @@
 					'; clientID:', wsConnect.connectionID,
 					'; clientIP:', wsConnect._socket.remoteAddress);
 
-				wsConnect.send(JSON.stringify({
-					'callbackID': mJSO.callbackID,
-					'data': bundle,
-					'status': {
-						'type': 'ERROR',
-						'message': 'reading bundle components'
-					}
-				}), undefined, 0);
-
+				// @todo indeed send data: bundle on error?
+				sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
+					' reading bundle components', bundle);
 			} else {
 				var fileIdx;
 
@@ -947,14 +836,7 @@
 					'; clientID:', wsConnect.connectionID,
 					'; clientIP:', wsConnect._socket.remoteAddress);
 
-				wsConnect.send(JSON.stringify({
-					'callbackID': mJSO.callbackID,
-					'data': bundle,
-					'status': {
-						'type': 'SUCCESS',
-						'message': ''
-					}
-				}), undefined, 0);
+				sendMessage(wsConnect, mJSO.callbackID, true, '', bundle);
 			}
 		});
 	}
@@ -977,13 +859,7 @@
 			// save annotation
 			fs.writeFile(path.normalize(path.join(path2bndl2save, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2), function (err) {
 				if (err) {
-					wsConnect.send(JSON.stringify({
-						'callbackID': mJSO.callbackID,
-						'status': {
-							'type': 'ERROR',
-							'message': 'Error writing annotation: ' + err
-						}
-					}), undefined, 0);
+					sendMessage(wsConnect, mJSO.callbackID, false, 'Error writing annotation: ' + err);
 				} else {
 
 					// save FORMANTS track (if defined for DB)
@@ -1000,65 +876,49 @@
 							// git commit
 							if (cfg.use_git_if_repo_found) {
 								commitToGitRepo(wsConnect.path2db, wsConnect.ID, mJSO.data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
-
-									wsConnect.send(JSON.stringify({
-										'callbackID': mJSO.callbackID,
-										'status': {
-											'type': 'SUCCESS'
-										}
-									}), undefined, 0);
-
+									sendMessage(wsConnect, mJSO.callbackID, true);
 								});
 							} else {
-								wsConnect.send(JSON.stringify({
-									'callbackID': mJSO.callbackID,
-									'status': {
-										'type': 'SUCCESS'
-									}
-								}), undefined, 0);
+								sendMessage(wsConnect, mJSO.callbackID, true);
 							}
 						});
 					} else {
 						// git commit SIC redundant
 						if (cfg.use_git_if_repo_found) {
 							commitToGitRepo(wsConnect.path2db, wsConnect.ID, mJSO.data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
-								wsConnect.send(JSON.stringify({
-									'callbackID': mJSO.callbackID,
-									'status': {
-										'type': 'SUCCESS'
-									}
-								}), undefined, 0);
-
+								sendMessage(wsConnect, mJSO.callbackID, true);
 							});
 						} else {
-							wsConnect.send(JSON.stringify({
-								'callbackID': mJSO.callbackID,
-								'status': {
-									'type': 'SUCCESS'
-								}
-							}), undefined, 0);
+							sendMessage(wsConnect, mJSO.callbackID, true);
 						}
 					}
 				}
 			});
 
 		}, function (err) {
-			wsConnect.send(JSON.stringify({
-				'callbackID': mJSO.callbackID,
-				'status': {
-					'type': 'ERROR',
-					'message': 'Error reading updating bundleList: ' + err
-				}
-			}), undefined, 0);
+			// @todo error in message
+			sendMessage(wsConnect, mJSO.callbackID, false, 'Error reading updating bundleList: ' + err);
+
 		});
 	}
 
 	function defaultHandlerDisconnectWarning(mJSO, wsConnect) {
+		sendMessage(wsConnect, mJSO.callbackID, true);
+	}
+
+	function sendMessage(wsConnect, callbackID, success, message, data) {
+		var type = 'ERROR';
+		if (success) {
+			type = 'SUCCESS';
+		}
+		// @todo is it okay to always send data and message, even if they're
+		// null or empty string?
 		wsConnect.send(JSON.stringify({
-			'callbackID': mJSO.callbackID,
+			'callbackID': callbackID,
+			'data': data,
 			'status': {
-				'type': 'SUCCESS',
-				'message': ''
+				'type': type,
+				'message': message
 			}
 		}), undefined, 0);
 	}
