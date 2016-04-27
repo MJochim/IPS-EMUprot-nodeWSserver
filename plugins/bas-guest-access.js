@@ -19,9 +19,8 @@ exports.pluginMessageHandlers = {
 	GETDOUSERMANAGEMENT: pluginHandlerGetDoUserManagement,
 	GETPROTOCOL: pluginHandlerGetProtocol,
 
-	// @todo is it acceptable that these functions do not even send a reply?
-	SAVEBUNDLE: function () {},
-	LOGONUSER: function () {}
+	SAVEBUNDLE: emptySuccessResponse,
+	LOGONUSER: emptySuccessResponse
 
 	// Not overridden:
 	// - GETBUNDLE
@@ -29,64 +28,42 @@ exports.pluginMessageHandlers = {
 	// - DISCONNECTWARNING
 };
 
-function pluginHandlerGetProtocol (mJSO, wsConnect) {
+function emptySuccessResponse(mJSO, wsConnect) {
+	sendMessage(wsConnect, mJSO.callbackID, true);
+}
+
+function emptyErrorResponse(mJSO, wsConnect) {
+	sendMessage(wsConnect, mJSO.callbackID, false);
+}
+
+function pluginHandlerGetProtocol(mJSO, wsConnect) {
 	// check authorization token in wsConnect.query.authToken
 	// ...
+	// and set wsConnect.authorised = true
+
 
 	// Call original event handler
 	defaultHandlerGetProtocol(mJSO, wsConnect);
 }
 
-function pluginHandlerGetDoUserManagement (mJSO, wsConnect) {
-	wsConnect.send(JSON.stringify({
-		'callbackID': mJSO.callbackID,
-		'data': 'NO',
-		'status': {
-			'type': 'SUCCESS',
-			'message': ''
-		}
-	}), undefined, 0);
+function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
+	sendMessage(wsConnect, mJSO.callbackID, true, '', 'NO');
 }
 
 
-function pluginHandlerGetGlobalDBConfig (mJSO, wsConnect) {
+function pluginHandlerGetGlobalDBConfig(mJSO, wsConnect) {
 	var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.dbName + '_DBconfig.json'));
-	fs.readFile(dbConfigPath, 'utf8', function (err, data) {
-		if (err) {
 
-			log.info('Error reading _DBconfig: ' + err,
-				'; clientID:', wsConnect.connectionID,
-				'; clientIP:', wsConnect._socket.remoteAddress);
-
-			wsConnect.send(JSON.stringify({
-				'callbackID': mJSO.callbackID,
-				'status': {
-					'type': 'ERROR',
-					'message': err
-				}
-			}), undefined, 0);
-
-			return;
-
-		} else {
-
-			wsConnect.dbConfig = JSON.parse(data);
-
-			// figure out which SSFF files should be sent with each bundle
-			wsConnect.allTrackDefsNeededByEMUwebApp = findAllTracksInDBconfigNeededByEMUwebApp(wsConnect.dbConfig);
-
+	readGlobalDBConfigFromDisk(dbConfigPath, wsConnect).then(
+		function (value) {
 			// Disable save buttons for bundles
 			wsConnect.dbConfig.EMUwebAppConfig.activeButtons.saveBundle = false;
 
-			wsConnect.send(JSON.stringify({
-				'callbackID': mJSO.callbackID,
-				'data': wsConnect.dbConfig,
-				'status': {
-					'type': 'SUCCESS',
-					'message': ''
-				}
-			}), undefined, 0);
-
+			// Send configuration object to client
+			sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.dbConfig);
+		},
+		function (reason) {
+			sendMessage(wsConnect, mJSO.callbackID, false, reason);
 		}
-	});
+	);
 }
