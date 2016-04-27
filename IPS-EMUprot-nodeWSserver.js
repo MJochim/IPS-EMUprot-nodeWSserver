@@ -652,6 +652,37 @@
 		return deferred.promise;
 	}
 
+	/**
+	 * Read database configuration from disk and return a promise resolving
+	 * to the parsed object.
+	 *
+	 * @param path Full path to DBConfig.json file.
+	 * @param wsConnect The connection that requested the configuration.
+	 * @returns A promise resolving to a DBConfig object.
+	 */
+	function readGlobalDBConfigFromDisk(path, wsConnect) {
+		var deferred = Q.defer();
+
+		fs.readFile(path, 'utf8', function (err, data) {
+			if (err) {
+				log.info('Error reading _DBconfig: ' + err,
+					'; clientID:', wsConnect.connectionID,
+					'; clientIP:', wsConnect._socket.remoteAddress);
+
+				deferred.reject(err);
+			} else {
+				wsConnect.dbConfig = JSON.parse(data);
+
+				// figure out which SSFF files should be sent with each bundle
+				wsConnect.allTrackDefsNeededByEMUwebApp = findAllTracksInDBconfigNeededByEMUwebApp(wsConnect.dbConfig);
+
+				deferred.resolve(wsConnect.dbConfig);
+			}
+		});
+
+		return deferred.promise;
+	}
+
 
 	// keep track of clients
 	var clients = [];
@@ -928,28 +959,15 @@
 
 	function defaultHandlerGetGlobalDBConfig(mJSO, wsConnect) {
 		var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.dbName + '_DBconfig.json'));
-		fs.readFile(dbConfigPath, 'utf8', function (err, data) {
-			if (err) {
 
-				log.info('Error reading _DBconfig: ' + err,
-					'; clientID:', wsConnect.connectionID,
-					'; clientIP:', wsConnect._socket.remoteAddress);
-
-				sendMessage(wsConnect, mJSO.callbackID, false, err);
-
-				return;
-
-			} else {
-
-				wsConnect.dbConfig = JSON.parse(data);
-
-				// figure out which SSFF files should be sent with each bundle
-				wsConnect.allTrackDefsNeededByEMUwebApp = findAllTracksInDBconfigNeededByEMUwebApp(wsConnect.dbConfig);
-
+		readGlobalDBConfigFromDisk(dbConfigPath, wsConnect).then(
+			function (value) {
 				sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.dbConfig);
+			},
+			function (reason) {
+				sendMessage(wsConnect, mJSO.callbackID, false, reason);
 			}
-		});
-
+		);
 	}
 
 	function defaultHandlerGetBundleList(mJSO, wsConnect) {
