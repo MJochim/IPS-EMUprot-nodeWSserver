@@ -159,7 +159,7 @@
 
 		try {
 			var file = fs.readFileSync(pluginConfigPath);
-			var pluginList = JSON.parse();
+			var pluginList = JSON.parse(file);
 		} catch (err) {
 			// ENOENT means that the file has not been found, which in turn
 			// means that no plugins have been configured. This is not critical.
@@ -709,7 +709,12 @@
 	}
 
 	function defaultHandlerLogonUser(mJSO, wsConnect) {
-		fs.readFile(path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json'), 'utf8', function (err, data) {
+		var bundleListPath = path.join(
+			wsConnect.path2db,
+			path.normalize(mJSO.userName + '_bundleList.json')
+		);
+
+		fs.readFile(bundleListPath, 'utf8', function (err, data) {
 			if (err) {
 
 				log.info('error reading _bundleList:', err,
