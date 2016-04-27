@@ -683,124 +683,15 @@
 		return deferred.promise;
 	}
 
-
-	// keep track of clients
-	var clients = [];
-
-	////////////////////////////////
-	// handle ws server connections
-
-	wss.on('connection', function (wsConnect) {
-		// generate uuid for connection
-		wsConnect.connectionID = generateUUID();
-
-		// log connection
-		log.info('new client connected',
-			'; clientID:', wsConnect.connectionID,
-			'; clientIP:', wsConnect._socket.remoteAddress);
-
-		// Has the user been authorised to use the database they requested?
-		wsConnect.authorised = false;
-
-		// Parse URL and save which database the client requests to access.
-		// Also save any query parameters. WARNING The query parameters are
-		// stored in wsConnect.urlQuery WITHOUT BEING ESCAPED OR VALIDATED.
-		try {
-			var urlParams = parseURL(wsConnect.upgradeReq.url);
-		} catch (error) {
-			// @todo is it okay to send empty callbackID?
-			sendMessage(wsConnect, '', false, 'The requested database is not readable');
-			wsConnect.terminate();
-			return;
-		}
-		wsConnect.path2db = urlParams.path2db;
-		wsConnect.urlQuery = urlParams.query;
-		// Extract last component of path2db - this is the db's name
-		wsConnect.dbName = path.basename(urlParams.path2db);
-
-		// A set of pointers to event handler functions.
-		// They initially reflect default behaviour and may be
-		// changed when database-specific plugins are loaded.
-		wsConnect.messageHandlers = {};
-		Object.assign(wsConnect.handlers, defaultMessageHandlers);
-
-		// load database-specific plugins
-		try {
-			loadAllPlugins(wsConnect);
-		} catch (error) {
-			// It was not possible to load all configured plugins
-			// @todo is it okay to send empty callbackID?
-			sendMessage(wsConnect, '', false, 'The requested database could not be loaded');
-			wsConnect.terminate();
-			return;
-		}
-
-		// @todo offer onConnect hook for plugins? - otherwise GETPROTOCOL will be misused for the reason
-
-		// append new connection to client list
-		clients.push(wsConnect);
-
-		/////////////////////////////////////
-		// connection-specific event handlers
-
-		// close event
-		wsConnect.on('close', function (message) {
-			log.info('closing connection',
-				'; clientID:', wsConnect.connectionID,
-				'; clientIP:', 'NA on close');
-
-			// remove client
-			for (var i = 0; i < clients.length; i++) {
-				if (clients[i].connectionID === wsConnect.connectionID) {
-					clients.splice(i);
-					break;
-				}
-			}
-		});
-
-		// message event
-		wsConnect.on('message', function (message) {
-			var mJSO = JSON.parse(message);
-
-			log.info('request/message type:', mJSO.type,
-				'; clientID:', wsConnect.connectionID,
-				'; clientIP:', wsConnect._socket.remoteAddress);
-
-			// If the connection has not been authorised to use a database,
-			// allow only generic protocol functions to be used.
-			if (wsConnect.authorised !== true) {
-				if (
-					mJSO.type !== 'GETPROTOCOL'
-					&& mJSO.type !== 'LOGONUSER'
-					&& mJSO.type !== 'GETDOUSERMANAGEMENT'
-				) {
-					sendMessage(wsConnect, mJSO.callbackID, false, 'Sent' +
-						' request type that is only allowed after logon!' +
-						' Request type was: ' + mJSO.type);
-					return;
-				}
-			}
+	//
+	// End of helper functions
+	//////////////////////////
 
 
-			// Check whether mJSO.type is valid and call the respective handler
-			if (
-				wsConnect.messageHandlers.hasOwnProperty(mJSO.type)
-				&& typeof wsConnect.messageHandlers[mJSO.type] === 'function'
-			) {
-				try {
-					// Call handler
-					(wsConnect.messageHandlers[mJSO.type])(mJSO, wsConnect);
-				} catch (err) {
-					log.error('Error in handling request of type: ', mJSO.type,
-						'; error message: ', err.message);
-				}
-			} else {
-				sendMessage(wsConnect, mJSO.callbackID, false, 'Sent request' +
-					' type that is unknown to server! Request type was: ' + mJSO.type);
-			}
-		});
-	});
-
+	////////////////////////////////////////////////////////////////
+	// Default event handlers for messages received from the client.
+	// Each message type has a handler function associated with it.
+	//
 
 	function defaultHandlerGetProtocol(mJSO, wsConnect) {
 		log.info('Following URL path (i.e. DB) was requested: ', wsConnect.upgradeReq.url,
@@ -1027,4 +918,129 @@
 	function defaultHandlerDisconnectWarning(mJSO, wsConnect) {
 		sendMessage(wsConnect, mJSO.callbackID, true);
 	}
+
+	//
+	// End of default event handlers
+	////////////////////////////////
+
+
+
+	////////////////////////////////
+	// handle ws server connections
+	// a.k.a. "main loop"
+	//
+
+	// keep track of clients
+	var clients = [];
+
+	wss.on('connection', function (wsConnect) {
+		// generate uuid for connection
+		wsConnect.connectionID = generateUUID();
+
+		// log connection
+		log.info('new client connected',
+			'; clientID:', wsConnect.connectionID,
+			'; clientIP:', wsConnect._socket.remoteAddress);
+
+		// Has the user been authorised to use the database they requested?
+		wsConnect.authorised = false;
+
+		// Parse URL and save which database the client requests to access.
+		// Also save any query parameters. WARNING The query parameters are
+		// stored in wsConnect.urlQuery WITHOUT BEING ESCAPED OR VALIDATED.
+		try {
+			var urlParams = parseURL(wsConnect.upgradeReq.url);
+		} catch (error) {
+			// @todo is it okay to send empty callbackID?
+			sendMessage(wsConnect, '', false, 'The requested database is not readable');
+			wsConnect.terminate();
+			return;
+		}
+		wsConnect.path2db = urlParams.path2db;
+		wsConnect.urlQuery = urlParams.query;
+		// Extract last component of path2db - this is the db's name
+		wsConnect.dbName = path.basename(urlParams.path2db);
+
+		// A set of pointers to event handler functions.
+		// They initially reflect default behaviour and may be
+		// changed when database-specific plugins are loaded.
+		wsConnect.messageHandlers = {};
+		Object.assign(wsConnect.handlers, defaultMessageHandlers);
+
+		// load database-specific plugins
+		try {
+			loadAllPlugins(wsConnect);
+		} catch (error) {
+			// It was not possible to load all configured plugins
+			// @todo is it okay to send empty callbackID?
+			sendMessage(wsConnect, '', false, 'The requested database could not be loaded');
+			wsConnect.terminate();
+			return;
+		}
+
+		// @todo offer onConnect hook for plugins? - otherwise GETPROTOCOL will be misused for the reason
+
+		// append new connection to client list
+		clients.push(wsConnect);
+
+		/////////////////////////////////////
+		// connection-specific event handlers
+
+		// close event
+		wsConnect.on('close', function (message) {
+			log.info('closing connection',
+				'; clientID:', wsConnect.connectionID,
+				'; clientIP:', 'NA on close');
+
+			// remove client
+			for (var i = 0; i < clients.length; i++) {
+				if (clients[i].connectionID === wsConnect.connectionID) {
+					clients.splice(i);
+					break;
+				}
+			}
+		});
+
+		// message event
+		wsConnect.on('message', function (message) {
+			var mJSO = JSON.parse(message);
+
+			log.info('request/message type:', mJSO.type,
+				'; clientID:', wsConnect.connectionID,
+				'; clientIP:', wsConnect._socket.remoteAddress);
+
+			// If the connection has not been authorised to use a database,
+			// allow only generic protocol functions to be used.
+			if (wsConnect.authorised !== true) {
+				if (
+					mJSO.type !== 'GETPROTOCOL'
+					&& mJSO.type !== 'LOGONUSER'
+					&& mJSO.type !== 'GETDOUSERMANAGEMENT'
+				) {
+					sendMessage(wsConnect, mJSO.callbackID, false, 'Sent' +
+						' request type that is only allowed after logon!' +
+						' Request type was: ' + mJSO.type);
+					return;
+				}
+			}
+
+
+			// Check whether mJSO.type is valid and call the respective handler
+			if (
+				wsConnect.messageHandlers.hasOwnProperty(mJSO.type)
+				&& typeof wsConnect.messageHandlers[mJSO.type] === 'function'
+			) {
+				try {
+					// Call handler
+					(wsConnect.messageHandlers[mJSO.type])(mJSO, wsConnect);
+				} catch (err) {
+					log.error('Error in handling request of type: ', mJSO.type,
+						'; error message: ', err.message);
+				}
+			} else {
+				sendMessage(wsConnect, mJSO.callbackID, false, 'Sent request' +
+					' type that is unknown to server! Request type was: ' + mJSO.type);
+			}
+		});
+	});
 }());
