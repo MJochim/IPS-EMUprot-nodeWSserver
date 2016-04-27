@@ -277,6 +277,33 @@
 	}
 
 	/**
+	 * Send a well-formed (as per the protocol) message to a client.
+	 *
+	 * @param wsConnect Connection object of the client to be addressed.
+	 * @param callbackID Reference ID of the client's message we're
+	 *                    responding to
+	 * @param success Boolean to indicate successful outcome
+	 * @param message Human-readable message text
+	 * @param data Machine-readable data
+	 */
+	function sendMessage(wsConnect, callbackID, success, message, data) {
+		var type = 'ERROR';
+		if (success) {
+			type = 'SUCCESS';
+		}
+		// @todo is it okay to always send data and message, even if they're
+		// null or empty string?
+		wsConnect.send(JSON.stringify({
+			'callbackID': callbackID,
+			'data': data,
+			'status': {
+				'type': type,
+				'message': message
+			}
+		}), undefined, 0);
+	}
+
+	/**
 	 *
 	 */
 	function onlyUnique(value, index, self) {
@@ -904,22 +931,5 @@
 
 	function defaultHandlerDisconnectWarning(mJSO, wsConnect) {
 		sendMessage(wsConnect, mJSO.callbackID, true);
-	}
-
-	function sendMessage(wsConnect, callbackID, success, message, data) {
-		var type = 'ERROR';
-		if (success) {
-			type = 'SUCCESS';
-		}
-		// @todo is it okay to always send data and message, even if they're
-		// null or empty string?
-		wsConnect.send(JSON.stringify({
-			'callbackID': callbackID,
-			'data': data,
-			'status': {
-				'type': type,
-				'message': message
-			}
-		}), undefined, 0);
 	}
 }());
