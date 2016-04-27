@@ -492,6 +492,167 @@
 	}
 
 
+	/**
+	 * Read all files pertaining to a bundle from disk and return a promise
+	 * resolving to that bunch of files.
+	 *
+	 * The params are expected to have been escaped.
+	 *
+	 * @param sessionPath Full path to the session directory
+	 * @param bundleName Name of the bundle, without _bndl suffix.
+	 * @param wsConnect The connection that requested the bundle.
+	 * @returns A promise resolving to a a "bundle bunch of files".
+	 */
+	function readBundleFromDisk(sessionPath, bundleName, wsConnect) {
+		var deferred = Q.defer();
+
+		var bundlePath = path.join(sessionPath, bundleName + '_bndl');
+
+		var bundle = {};
+		bundle.ssffFiles = [];
+
+		var allFilePaths = [];
+
+		// add media file path
+		var mediaFilePath = path.join(bundlePath, bundleName + '.' + wsConnect.dbConfig.mediafileExtension);
+		allFilePaths.push(mediaFilePath);
+
+		// add annotation file path
+		var annotFilePath = path.join(bundlePath, bundleName + '_annot.json');
+		allFilePaths.push(annotFilePath);
+
+		// add ssff file paths
+		var ssffFilePaths = [];
+		wsConnect.allTrackDefsNeededByEMUwebApp.forEach(function (td) {
+			var ssffFilePath = path.join(bundlePath, bundleName + '.' + td.fileExtension);
+			allFilePaths.push(ssffFilePath);
+			ssffFilePaths.push(ssffFilePath);
+		});
+
+		// read in files using async.map
+		async.map(allFilePaths, fs.readFile, function (err, results) {
+			if (err) {
+				log.error('reading bundle components:', err,
+					'; clientID:', wsConnect.connectionID,
+					'; clientIP:', wsConnect._socket.remoteAddress);
+
+				deferred.reject();
+			} else {
+				var fileIdx;
+
+				// set media file
+				fileIdx = allFilePaths.indexOf(mediaFilePath);
+				bundle.mediaFile = {
+					encoding: 'BASE64',
+					data: results[fileIdx].toString('base64')
+				};
+
+				// set annotation file
+				fileIdx = allFilePaths.indexOf(annotFilePath);
+				bundle.annotation = JSON.parse(results[fileIdx].toString('utf8'));
+
+				// set ssffTracks
+				ssffFilePaths.forEach(function (sfp) {
+					fileIdx = allFilePaths.indexOf(sfp);
+					// extract file ext
+					var fileExt = path.extname(sfp).split('.').pop();
+					bundle.ssffFiles.push({
+						fileExtension: fileExt,
+						encoding: 'BASE64',
+						data: results[fileIdx].toString('base64')
+					});
+				});
+
+				log.info('Finished reading bundle components. Now returning them.',
+					'; clientID:', wsConnect.connectionID,
+					'; clientIP:', wsConnect._socket.remoteAddress);
+
+				deferred.resolve(bundle);
+			}
+		});
+
+		return deferred.promise;
+	}
+
+	/**
+	 * Write a bundle to disk and return a promise to indicate success.
+	 *
+	 * @param sessionPath Full path to the session directory
+	 * @param bundleName Name of the bundle, without _bndl suffix.
+	 * @param wsConnect The connection that requested the bundle.
+	 * @param data The data part of the SAVEBUNDLE request.
+	 * @param wsConnect The connection that sent the request.
+	 * @returns A promise that is rejected with a message string or resolves
+	 *           to null.
+	 */
+	function writeBundleToDisk(sessionPath, bundleName, data, wsConnect) {
+		var deferred = Q.defer();
+
+		// update bundleList
+		updateBndlListEntry(wsConnect.bndlListPath, {
+			'name': data.annotation.name,
+			'session': data.session,
+			'finishedEditing': data.finishedEditing,
+			'comment': data.comment
+		}).then(function () {
+			// save annotation
+			var annotJSONpath = path.join(
+				sessionPath,
+				bundleName + '_bndl',
+				path.normalize(bundleName + '_annot.json')
+			);
+			var fmsPath = path.join(
+				sessionPath,
+				bundleName + '_bndl',
+				path.normalize(bundleName + '.fms')
+			);
+
+			fs.writeFile(annotJSONpath, JSON.stringify(data.annotation, undefined, 2), function (err) {
+				if (err) {
+					deferred.reject('Error writing annotation ' + err);
+				} else {
+					// save FORMANTS track (if defined for DB)
+					var foundFormantsDef = false;
+					for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
+						if (wsConnect.dbConfig.ssffTrackDefinitions[i].name === 'FORMANTS') {
+							foundFormantsDef = true;
+						}
+					}
+
+					if (foundFormantsDef) {
+						// write SSFF stored in data.ssffFiles[0] back to
+						// file (expects FORMANTS files to have .fms as extentions)
+						fs.writeFile(fmsPath, data.ssffFiles[0].data, 'base64', function (err) {
+							// git commit
+							if (cfg.use_git_if_repo_found) {
+								commitToGitRepo(wsConnect.path2db, wsConnect.ID, data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
+									deferred.resolve();
+								});
+							} else {
+								deferred.resolve();
+							}
+						});
+					} else {
+						// git commit SIC redundant
+						if (cfg.use_git_if_repo_found) {
+							commitToGitRepo(wsConnect.path2db, wsConnect.ID, data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
+								deferred.resolve();
+							});
+						} else {
+							deferred.resolve();
+						}
+					}
+				}
+			});
+
+		}, function (err) {
+			deferred.reject('Error updating bundleList: ' + err);
+		});
+
+		return deferred.promise;
+	}
+
+
 	// keep track of clients
 	var clients = [];
 
@@ -800,72 +961,26 @@
 			'; clientID:', wsConnect.connectionID,
 			'; clientIP:', wsConnect._socket.remoteAddress);
 
-		var path2bndl = path.normalize(path.join(wsConnect.path2db, mJSO.session + '_ses', mJSO.name + '_bndl'));
+		// User input is escaped via path.normalize(); this way, ".." cannot
+		// be used to break out of the directory set by cfg.path2emuDBs
+		var sessionPath = path.join(
+			wsConnect.path2db,
+			path.normalize(mJSO.session + '_ses')
+		);
+		var bundleName = path.normalize(mJSO.name);
 
-		var bundle = {};
-		bundle.ssffFiles = [];
-
-		var allFilePaths = [];
-
-		// add media file path
-		var mediaFilePath = path.join(path2bndl, mJSO.name + '.' + wsConnect.dbConfig.mediafileExtension);
-		allFilePaths.push(mediaFilePath);
-
-		// add annotation file path
-		var annotFilePath = path.join(path2bndl, mJSO.name + '_annot.json');
-		allFilePaths.push(annotFilePath);
-
-		// add ssff file paths
-		var ssffFilePaths = [];
-		wsConnect.allTrackDefsNeededByEMUwebApp.forEach(function (td) {
-			var ssffFilePath = path.join(path2bndl, mJSO.name + '.' + td.fileExtension);
-			allFilePaths.push(ssffFilePath);
-			ssffFilePaths.push(ssffFilePath);
-		});
-
-		// read in files using async.map
-		async.map(allFilePaths, fs.readFile, function (err, results) {
-			if (err) {
-				log.error('reading bundle components:', err,
-					'; clientID:', wsConnect.connectionID,
-					'; clientIP:', wsConnect._socket.remoteAddress);
-
-				// @todo indeed send data: bundle on error?
+		// Read bundle from disk and send it back to the client
+		readBundleFromDisk(sessionPath, bundleName, wsConnect).then(
+			function (value) {
+				sendMessage(wsConnect, mJSO.callbackID, true, '', value);
+			},
+			function (reason) {
+				// Previous version did send data: bundle despite errors.
+				// @todo Does anybody depend on this behaviour?
 				sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
-					' reading bundle components', bundle);
-			} else {
-				var fileIdx;
-
-				// set media file
-				fileIdx = allFilePaths.indexOf(mediaFilePath);
-				bundle.mediaFile = {
-					encoding: 'BASE64',
-					data: results[fileIdx].toString('base64')
-				};
-
-				// set annotation file
-				fileIdx = allFilePaths.indexOf(annotFilePath);
-				bundle.annotation = JSON.parse(results[fileIdx].toString('utf8'));
-
-				// set ssffTracks
-				ssffFilePaths.forEach(function (sfp) {
-					fileIdx = allFilePaths.indexOf(sfp);
-					// extract file ext
-					var fileExt = path.extname(sfp).split('.').pop();
-					bundle.ssffFiles.push({
-						fileExtension: fileExt,
-						encoding: 'BASE64',
-						data: results[fileIdx].toString('base64')
-					});
-				});
-
-				log.info('Finished reading bundle components. Now returning them.',
-					'; clientID:', wsConnect.connectionID,
-					'; clientIP:', wsConnect._socket.remoteAddress);
-
-				sendMessage(wsConnect, mJSO.callbackID, true, '', bundle);
+					' reading bundle components');
 			}
-		});
+		);
 	}
 
 	function defaultHandlerSaveBundle(mJSO, wsConnect) {
@@ -873,60 +988,22 @@
 			'; clientID:', wsConnect.connectionID,
 			'; clientIP:', wsConnect._socket.remoteAddress);
 
-		var path2bndl2save = path.normalize(path.join(wsConnect.path2db, mJSO.data.session + '_ses', mJSO.data.annotation.name + '_bndl'));
+		// User input is escaped via path.normalize(); this way, ".." cannot
+		// be used to break out of the directory set by cfg.path2emuDBs
+		var sessionPath = path.join(
+			wsConnect.path2db,
+			path.normalize(mJSO.session + '_ses')
+		);
+		var bundleName = path.normalize(mJSO.data.annotation.name);
 
-		// update bundleList
-		updateBndlListEntry(wsConnect.bndlListPath, {
-			'name': mJSO.data.annotation.name,
-			'session': mJSO.data.session,
-			'finishedEditing': mJSO.data.finishedEditing,
-			'comment': mJSO.data.comment
-		}).then(function () {
-
-			// save annotation
-			fs.writeFile(path.normalize(path.join(path2bndl2save, mJSO.data.annotation.name + '_annot.json')), JSON.stringify(mJSO.data.annotation, undefined, 2), function (err) {
-				if (err) {
-					sendMessage(wsConnect, mJSO.callbackID, false, 'Error writing annotation: ' + err);
-				} else {
-
-					// save FORMANTS track (if defined for DB)
-					var foundFormantsDef = false;
-					for (var i = 0; i < wsConnect.dbConfig.ssffTrackDefinitions.length; i++) {
-						if (wsConnect.dbConfig.ssffTrackDefinitions[i].name === 'FORMANTS') {
-							foundFormantsDef = true;
-						}
-					}
-
-					if (foundFormantsDef) {
-						// write SSFF stored in mJSO.data.ssffFiles[0] back to file (expects FORMANTS files to have .fms as extentions)
-						fs.writeFile(path.normalize(path.join(path2bndl2save, mJSO.data.annotation.name + '.fms')), mJSO.data.ssffFiles[0].data, 'base64', function (err) {
-							// git commit
-							if (cfg.use_git_if_repo_found) {
-								commitToGitRepo(wsConnect.path2db, wsConnect.ID, mJSO.data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
-									sendMessage(wsConnect, mJSO.callbackID, true);
-								});
-							} else {
-								sendMessage(wsConnect, mJSO.callbackID, true);
-							}
-						});
-					} else {
-						// git commit SIC redundant
-						if (cfg.use_git_if_repo_found) {
-							commitToGitRepo(wsConnect.path2db, wsConnect.ID, mJSO.data.annotation.name, wsConnect.connectionID, wsConnect._socket.remoteAddress).then(function (resp) {
-								sendMessage(wsConnect, mJSO.callbackID, true);
-							});
-						} else {
-							sendMessage(wsConnect, mJSO.callbackID, true);
-						}
-					}
-				}
-			});
-
-		}, function (err) {
-			// @todo error in message
-			sendMessage(wsConnect, mJSO.callbackID, false, 'Error reading updating bundleList: ' + err);
-
-		});
+		writeBundleToDisk(sessionPath, bundleName, mJSO.data, wsConnect).then(
+			function () {
+				sendMessage(wsConnect, mJSO.callbackID, true);
+			},
+			function (reason) {
+				sendMessage(wsConnect, mJSO.callbackID, false, reason);
+			}
+		)
 	}
 
 	function defaultHandlerDisconnectWarning(mJSO, wsConnect) {
