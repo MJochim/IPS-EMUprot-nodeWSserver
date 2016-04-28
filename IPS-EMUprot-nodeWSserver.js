@@ -131,16 +131,13 @@
 	 */
 	var defaultMessageHandlers = {
 		GETPROTOCOL: defaultHandlerGetProtocol,
-		DISCONNECTWARNING: defaultHandlerDisconnectWarning,
 		GETDOUSERMANAGEMENT: defaultHandlerGetDoUserManagement,
 		LOGONUSER: defaultHandlerLogonUser,
 		GETGLOBALDBCONFIG: defaultHandlerGetGlobalDBConfig,
-
-		// The following can be overridden by plugins
-		// @todo finalise this list
 		GETBUNDLELIST: defaultHandlerGetBundleList,
 		GETBUNDLE: defaultHandlerGetBundle,
-		SAVEBUNDLE: defaultHandlerSaveBundle
+		SAVEBUNDLE: defaultHandlerSaveBundle,
+		DISCONNECTWARNING: defaultHandlerDisconnectWarning
 	};
 
 	/**
@@ -154,6 +151,8 @@
 	 * @param wsConnect The connection object to attach the plugin to.
 	 */
 	function loadAllPlugins(wsConnect) {
+		log.info('Loading plugins ; clientID', wsConnect.connectionID);
+
 		// Read plugin configuration file
 		var pluginConfigPath = path.join(wsConnect.path2db, 'nodejs_server_plugins.json');
 
@@ -163,13 +162,14 @@
 		} catch (err) {
 			// ENOENT means that the file has not been found, which in turn
 			// means that no plugins have been configured. This is not critical.
-			if (err.code === 'ENONENT') {
+			if (err.code === 'ENOENT') {
+				log.info('No plugin configration file in ', pluginConfigPath, '; clientID: ', wsConnect.connectionID);
 				return;
 			}
 
 			// Every other error is critical and should lead to the DB not
 			// being accessible
-			throw new Error('Plugin config file could not be read: ', +pluginConfigPath);
+			throw new Error('Plugin config file could not be read: ' + pluginConfigPath + '. Error was: ' + err);
 		}
 
 		// Load plugins
@@ -198,7 +198,14 @@
 	 */
 	function loadPlugin(wsConnect, pluginName) {
 		try {
-			var plugin = require(path.join('.', 'plugins', pluginName));
+			var pluginPath = './' + path.join('plugins', pluginName);
+
+			// Delete plugin from require.cache so we can actually load the
+			// current version of it
+			delete require.cache[require.resolve(pluginPath)];
+
+			// Load current version
+			var plugin = require(pluginPath);
 
 			var pluginMessageHandlers = plugin.pluginMessageHandlers;
 
@@ -211,17 +218,31 @@
 		}
 
 		try {
-			// @todo adapt this to finalised list of overridable functions
+			if (typeof pluginMessageHandlers.GETPROTOCOL === 'function') {
+				wsConnect.messageHandlers.GETPROTOCOL = pluginMessageHandlers.GETPROTOCOL;
+			}
+			if (typeof pluginMessageHandlers.GETDOUSERMANAGEMENT === 'function') {
+				wsConnect.messageHandlers.GETDOUSERMANAGEMENT = pluginMessageHandlers.GETDOUSERMANAGEMENT;
+			}
+			if (typeof pluginMessageHandlers.LOGONUSER === 'function') {
+				wsConnect.messageHandlers.LOGONUSER = pluginMessageHandlers.LOGONUSER;
+			}
+			if (typeof pluginMessageHandlers.GETGLOBALDBCONFIG === 'function') {
+				wsConnect.messageHandlers.GETGLOBALDBCONFIG = pluginMessageHandlers.GETGLOBALDBCONFIG;
+			}
 			if (typeof pluginMessageHandlers.GETBUNDLELIST === 'function') {
 				wsConnect.messageHandlers.GETBUNDLELIST = pluginMessageHandlers.GETBUNDLELIST;
 			}
-
 			if (typeof pluginMessageHandlers.GETBUNDLE === 'function') {
 				wsConnect.messageHandlers.GETBUNDLE = pluginMessageHandlers.GETBUNDLE;
 			}
 
 			if (typeof pluginMessageHandlers.SAVEBUNDLE === 'function') {
 				wsConnect.messageHandlers.SAVEBUNDLE = pluginMessageHandlers.SAVEBUNDLE;
+			}
+
+			if (typeof pluginMessageHandlers.DISCONNECTWARNING === 'function') {
+				wsConnect.messageHandlers.DISCONNECTWARNING = pluginMessageHandlers.DISCONNECTWARNING;
 			}
 		} catch (error) {
 			log.info('Error loading plugin (it may have been loaded' +
@@ -924,10 +945,33 @@
 		sendMessage(wsConnect, mJSO.callbackID, true);
 	}
 
+	module.exports = {
+		log: log,
+
+		defaultHandlerGetProtocol: defaultHandlerGetProtocol,
+		defaultHandlerGetDoUserManagement: defaultHandlerGetDoUserManagement,
+		defaultHandlerLogonUser: defaultHandlerLogonUser,
+		defaultHandlerGetGlobalDBConfig: defaultHandlerGetGlobalDBConfig,
+		defaultHandlerGetBundleList: defaultHandlerGetBundleList,
+		defaultHandlerGetBundle: defaultHandlerGetBundle,
+		defaultHandlerSavebundle: defaultHandlerSaveBundle,
+		defaultHandlerDisconnectWarning: defaultHandlerDisconnectWarning,
+
+		sendMessage: sendMessage,
+		onlyUnique: onlyUnique,
+		findAllTracksInDBconfigNeededByEMUwebApp: findAllTracksInDBconfigNeededByEMUwebApp,
+		generateUUID: generateUUID,
+		checkCredentialsInSQLiteDB: checkCredentialsInSQLiteDB,
+		updateBndlListEntry: updateBndlListEntry,
+		filterBndlList: filterBndlList,
+		commitToGitRepo: commitToGitRepo,
+		readBundleFromDisk: readBundleFromDisk,
+		writeBundleToDisk: writeBundleToDisk,
+		readGlobalDBConfigFromDisk: readGlobalDBConfigFromDisk
+	};
 	//
 	// End of default event handlers
 	////////////////////////////////
-
 
 
 	////////////////////////////////
@@ -958,6 +1002,7 @@
 		} catch (error) {
 			// @todo is it okay to send empty callbackID?
 			sendMessage(wsConnect, '', false, 'The requested database is not readable');
+			log.info('parseURL failed, terminating connection.', 'clientID:', wsConnect.connectionID, '; error:', error);
 			wsConnect.terminate();
 			return;
 		}
@@ -970,7 +1015,7 @@
 		// They initially reflect default behaviour and may be
 		// changed when database-specific plugins are loaded.
 		wsConnect.messageHandlers = {};
-		Object.assign(wsConnect.handlers, defaultMessageHandlers);
+		Object.assign(wsConnect.messageHandlers, defaultMessageHandlers);
 
 		// load database-specific plugins
 		try {
@@ -979,6 +1024,7 @@
 			// It was not possible to load all configured plugins
 			// @todo is it okay to send empty callbackID?
 			sendMessage(wsConnect, '', false, 'The requested database could not be loaded');
+			log.info('plugin loader failed, terminating connection.', 'clientID:', wsConnect.connectionID, '; error:', error);
 			wsConnect.terminate();
 			return;
 		}
