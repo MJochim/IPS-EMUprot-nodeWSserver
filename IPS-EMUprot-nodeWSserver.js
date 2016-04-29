@@ -51,6 +51,7 @@
 	var Q = require('q');
 	var jsonlint = require('jsonlint');
 	var url = require('url');
+	var domain = require('domain');
 
 	// for authentication to work
 	process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -151,8 +152,6 @@
 	 * @param wsConnect The connection object to attach the plugin to.
 	 */
 	function loadAllPlugins(wsConnect) {
-		log.info('Loading plugins ; clientID', wsConnect.connectionID);
-
 		// Read plugin configuration file
 		var pluginConfigPath = path.join(wsConnect.path2db, 'nodejs_server_plugins.json');
 
@@ -197,6 +196,8 @@
 	 * @param pluginName The name of the plugin to be loaded
 	 */
 	function loadPlugin(wsConnect, pluginName) {
+		log.info('Loading plugin:', pluginName, '; DB:', wsConnect.path2db);
+
 		try {
 			var pluginPath = './' + path.join('plugins', pluginName);
 
@@ -213,8 +214,7 @@
 				throw new Error('Plugin does not export pluginMessageHandlers object');
 			}
 		} catch (error) {
-			log.info('Could not load plugin:', pluginName, '; reason:', error.message);
-			throw error;
+			throw new Error('Could not load plugin: ' + pluginName + '; reason: ' + error.message);
 		}
 
 		try {
@@ -245,9 +245,8 @@
 				wsConnect.messageHandlers.DISCONNECTWARNING = pluginMessageHandlers.DISCONNECTWARNING;
 			}
 		} catch (error) {
-			log.info('Error loading plugin (it may have been loaded' +
-				' partially:', pluginName, '; reason:', error.message);
-			throw error;
+			throw new Error('Error loading plugin (it may have been loaded' +
+				' partially: ' + pluginName + '; reason: ' + error.message);
 		}
 	}
 
@@ -715,10 +714,6 @@
 	//
 
 	function defaultHandlerGetProtocol(mJSO, wsConnect) {
-		log.info('Following URL path (i.e. DB) was requested: ', wsConnect.upgradeReq.url,
-			'; clientID:', wsConnect.connectionID,
-			'; clientIP:', wsConnect._socket.remoteAddress);
-
 		sendMessage(wsConnect, mJSO.callbackID, true, '', {
 			'protocol': 'EMU-webApp-websocket-protocol',
 			'version': '0.0.2'
@@ -989,7 +984,9 @@
 		// log connection
 		log.info('new client connected',
 			'; clientID:', wsConnect.connectionID,
-			'; clientIP:', wsConnect._socket.remoteAddress);
+			'; clientIP:', wsConnect._socket.remoteAddress,
+			'; URL:', wsConnect.upgradeReq.url
+		);
 
 		// Has the user been authorised to use the database they requested?
 		wsConnect.authorised = false;
@@ -1024,7 +1021,7 @@
 			// It was not possible to load all configured plugins
 			// @todo is it okay to send empty callbackID?
 			sendMessage(wsConnect, '', false, 'The requested database could not be loaded');
-			log.info('plugin loader failed, terminating connection.', 'clientID:', wsConnect.connectionID, '; error:', error);
+			log.info('Plugin loader failed, terminating connection.', 'clientID:', wsConnect.connectionID, '; Reason: ', error.message);
 			wsConnect.terminate();
 			return;
 		}
@@ -1081,13 +1078,32 @@
 				wsConnect.messageHandlers.hasOwnProperty(mJSO.type)
 				&& typeof wsConnect.messageHandlers[mJSO.type] === 'function'
 			) {
-				try {
+				// Call the event handler but make sure we catch *all* errors
+				// try .. catch would not catch any errors the event handler
+				// throws asynchronously. That is why why we use domains.
+
+				var pluginDomain = domain.create();
+				pluginDomain.on('error', function (error) {
+					log.error(
+						'Uncaught exception in handling request of type:', mJSO.type,
+						'; error message:', error.message,
+						'; database:', wsConnect.path2db,
+						'; clientIP:', wsConnect._socket.remoteAddress
+					);
+
+					sendMessage(
+						wsConnect, mJSO.callbackID, false,
+						'Unknown error in server or a database plugin.' +
+						' Technical error message: ' + error.message
+					);
+
+					// @todo kill respective connection?
+
+				});
+				pluginDomain.run ( function() {
 					// Call handler
 					(wsConnect.messageHandlers[mJSO.type])(mJSO, wsConnect);
-				} catch (err) {
-					log.error('Error in handling request of type: ', mJSO.type,
-						'; error message: ', err.message);
-				}
+				});
 			} else {
 				sendMessage(wsConnect, mJSO.callbackID, false, 'Sent request' +
 					' type that is unknown to server! Request type was: ' + mJSO.type);
