@@ -28,63 +28,76 @@ exports.pluginMessageHandlers = {
 	// - DISCONNECTWARNING
 };
 
+var main = require.main.exports;
+
+var path = require('path');
+var fs = require('fs');
+
 function emptySuccessResponse(mJSO, wsConnect) {
-	sendMessage(wsConnect, mJSO.callbackID, true);
+	main.sendMessage(wsConnect, mJSO.callbackID, true);
 }
 
 function emptyErrorResponse(mJSO, wsConnect) {
-	sendMessage(wsConnect, mJSO.callbackID, false);
+	main.sendMessage(wsConnect, mJSO.callbackID, false);
 }
 
 function pluginHandlerGetProtocol(mJSO, wsConnect) {
 	// @todo GETPROTOCOL just isnt the right place for this. we should have an onConnection hook
 	var authToken = wsConnect.urlQuery.authToken;
+	if (authToken === undefined) {
+		authToken = '';
+	}
 	var bundleListPath = path.join(
 		wsConnect.path2db,
-		path.normalize(authToken)
+		path.normalize(authToken + '_bundleList.json')
 	);
 
 	fs.readFile(bundleListPath, 'utf8', function (err, data) {
 		if (err) {
-			sendMessage(wsConnect, mJSO.callbackID, false, 'Invalid auth token');
+			main.sendMessage(wsConnect, mJSO.callbackID, false, 'Invalid auth' +
+				' token');
 		} else {
-			log.info('found _bndlList.json for auth token: ', authToken, ' in: ', wsConnect.path2db,
+
+			main.log.info('Accepting auth token:', authToken, 'in:', wsConnect.path2db,
 				'; clientID:', wsConnect.connectionID,
 				'; clientIP:', wsConnect._socket.remoteAddress);
 
 			try {
 				// safely parse data:
-				var parsedData = jsonlint.parse(data);
+				// @todo any difference between this and jsonlint.parse() ?
+				var parsedData = JSON.parse(data);
 				wsConnect.bndlList = parsedData;
+				wsConnect.authorised = true;
 
 				// Call original event handler
-				defaultHandlerGetProtocol(mJSO, wsConnect);
+				main.defaultHandlerGetProtocol(mJSO, wsConnect);
 			} catch (error) {
-				sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
+				main.sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
 					' parsing _bundleList.json: ' + error);
+				main.log.info('caught exception in plugin');
 			}
 		}
 	});
 }
 
 function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
-	sendMessage(wsConnect, mJSO.callbackID, true, '', 'NO');
+	main.sendMessage(wsConnect, mJSO.callbackID, true, '', 'NO');
 }
 
 
 function pluginHandlerGetGlobalDBConfig(mJSO, wsConnect) {
 	var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.dbName + '_DBconfig.json'));
 
-	readGlobalDBConfigFromDisk(dbConfigPath, wsConnect).then(
+	main.readGlobalDBConfigFromDisk(dbConfigPath, wsConnect).then(
 		function (value) {
 			// Disable save buttons for bundles
 			wsConnect.dbConfig.EMUwebAppConfig.activeButtons.saveBundle = false;
 
 			// Send configuration object to client
-			sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.dbConfig);
+			main.sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.dbConfig);
 		},
 		function (reason) {
-			sendMessage(wsConnect, mJSO.callbackID, false, reason);
+			main.sendMessage(wsConnect, mJSO.callbackID, false, reason);
 		}
 	);
 }
