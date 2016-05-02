@@ -67,6 +67,7 @@ function pluginHandlerGetProtocol(mJSO, wsConnect) {
 				// @todo any difference between this and jsonlint.parse() ?
 				var parsedData = JSON.parse(data);
 				wsConnect.bndlList = parsedData;
+				wsConnect.bndlListPath = bundleListPath;
 				wsConnect.authorised = true;
 
 				// Call original event handler
