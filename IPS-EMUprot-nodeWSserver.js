@@ -431,7 +431,7 @@
 
 		fs.readFile(bndlListPath, function (err, data) {
 			if (err) {
-				deffered.reject(new Error(err));
+				deferred.reject(new Error(err));
 			} else {
 				var curBndlList = JSON.parse(data);
 
@@ -452,6 +452,8 @@
 							deferred.resolve();
 						}
 					});
+				} else {
+					deferred.reject();
 				}
 			}
 		});
@@ -922,7 +924,7 @@
 		// be used to break out of the directory set by cfg.path2emuDBs
 		var sessionPath = path.join(
 			wsConnect.path2db,
-			path.normalize(mJSO.session + '_ses')
+			path.normalize(mJSO.data.session + '_ses')
 		);
 		var bundleName = path.normalize(mJSO.data.annotation.name);
 
@@ -941,6 +943,7 @@
 	}
 
 	module.exports = {
+		cfg: cfg,
 		log: log,
 
 		defaultHandlerGetProtocol: defaultHandlerGetProtocol,
@@ -1088,7 +1091,8 @@
 						'Uncaught exception in handling request of type:', mJSO.type,
 						'; error message:', error.message,
 						'; database:', wsConnect.path2db,
-						'; clientIP:', wsConnect._socket.remoteAddress
+						'; clientIP:', wsConnect._socket.remoteAddress,
+						error
 					);
 
 					sendMessage(
