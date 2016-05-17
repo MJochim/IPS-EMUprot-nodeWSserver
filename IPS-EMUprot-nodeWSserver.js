@@ -145,7 +145,8 @@
 	 * Look for a plugin configuration file in database and load the plugins.
 	 *
 	 * The file must be named nodejs_server_plugins.json and reside at the
-	 * db's top level directory. It must contain a JSON array of strings.
+	 * db's top level directory. It must contain a JSON object with the
+	 * string property `pluginName`.
 	 *
 	 * @throws When plugin configuration cannot be found or is corrupt.
 	 * @throws When loadPlugin() fails for one of the plugins.
@@ -157,7 +158,7 @@
 
 		try {
 			var file = fs.readFileSync(pluginConfigPath);
-			var pluginList = JSON.parse(file);
+			var pluginConfig = JSON.parse(file);
 		} catch (err) {
 			// ENOENT means that the file has not been found, which in turn
 			// means that no plugins have been configured. This is not critical.
@@ -172,16 +173,8 @@
 		}
 
 		// Load plugins
-		if (pluginList instanceof Array) {
-			for (var i = 0; i < pluginList.length; ++i) {
-				if (typeof pluginList[i] === 'string') {
-					// loadPlugin might throw but this is deliberately not
-					// caught at this point
-					loadPlugin(wsConnect, pluginList[i]);
-				} else {
-					throw new Error('Plugin config file is corrupt: ' + pluginConfigPath);
-				}
-			}
+		if (pluginConfig instanceof Object && typeof pluginConfig.pluginName === 'string') {
+			loadPlugin(wsConnect, pluginConfig.pluginName);
 		} else {
 			throw new Error('Plugin config file is corrupt: ' + pluginConfigPath);
 		}
