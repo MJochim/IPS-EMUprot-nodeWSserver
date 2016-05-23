@@ -272,7 +272,7 @@
 		dbName = path.normalize(dbName);
 
 		// Construct path to requested database
-		var path2db = path.normalize(path.join(cfg.path2emuDBs, dbName));
+		var path2db = path.normalize(path.join(cfg.path2emuDBs, dbName)) + '_emuDB';
 
 		// Make sure we are not trying to point at the root dir of all
 		// databases
