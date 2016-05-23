@@ -19,8 +19,8 @@ exports.pluginMessageHandlers = {
 	GETDOUSERMANAGEMENT: pluginHandlerGetDoUserManagement,
 	GETPROTOCOL: pluginHandlerGetProtocol,
 
-	SAVEBUNDLE: emptySuccessResponse,
-	LOGONUSER: emptySuccessResponse
+	SAVEBUNDLE: pluginHandlerSaveBundle,
+	LOGONUSER: pluginHandlerLogonUser
 
 	// Not overridden:
 	// - GETBUNDLE
@@ -33,12 +33,25 @@ var main = require.main.exports;
 var path = require('path');
 var fs = require('fs');
 
-function emptySuccessResponse(mJSO, wsConnect) {
-	main.sendMessage(wsConnect, mJSO.callbackID, true);
+function pluginHandlerSaveBundle(mJSO, wsConnect) {
+	main.log.info('Attempted to save a bundle with BAS guest access. DB:' +
+			wsConnect.path2db +
+			'; clientID:', wsConnect.connectionID,
+			'; clientIP:', wsConnect._socket.remoteAddress);
+
+	main.sendMessage(wsConnect, mJSO.callbackID, false, 'Attempted to save a bundle with BAS guest access');
 }
 
-function emptyErrorResponse(mJSO, wsConnect) {
-	main.sendMessage(wsConnect, mJSO.callbackID, false);
+function pluginHandlerLogonUser(mJSO, wsConnect) {
+	main.log.info('Attempted to log in with username and password, but this' +
+		' is a BAS guest access enabled database. . DB:' +
+			wsConnect.path2db +
+			'; clientID:', wsConnect.connectionID,
+			'; clientIP:', wsConnect._socket.remoteAddress);
+
+	main.sendMessage(wsConnect, mJSO.callbackID, false,
+		'Attempted to log in with username and password, but this' +
+		' is a BAS guest access enabled database.');
 }
 
 function pluginHandlerGetProtocol(mJSO, wsConnect) {
