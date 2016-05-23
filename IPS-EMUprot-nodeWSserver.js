@@ -249,10 +249,11 @@
 	 * resolves to a readable directory. (It is not checked whether
 	 * the directory actually contains a database.)
 	 *
-	 * Returns an object with the properties path2db and query. path2db is
-	 * the combination of cfg.path2emuDBs and the URL's path component.
-	 * query is an object containing the key value pairs from the URL's
-	 * query string.
+	 * Returns an object with the properties dbName, path2db and query.
+	 * dbName is the URL's path component, in normalised form.
+	 * path2db is the combination of cfg.path2emuDBs, the URL's path
+	 * component, and the suffix _emuDB.
+	 * query is an object containing the key value pairs from the URL's query string.
 	 *
 	 * WARNING The parameters in query are not escaped or otherwise validated.
 	 *
@@ -284,6 +285,7 @@
 		fs.accessSync(path2db, fs.R_OK | fs.X_OK);
 
 		return {
+			dbName: dbName,
 			path2db: path2db,
 			query: urlObj.query
 		};
@@ -1002,7 +1004,7 @@
 		wsConnect.path2db = urlParams.path2db;
 		wsConnect.urlQuery = urlParams.query;
 		// Extract last component of path2db - this is the db's name
-		wsConnect.dbName = path.basename(urlParams.path2db);
+		wsConnect.dbName = urlParams.dbName;
 
 		// A set of pointers to event handler functions.
 		// They initially reflect default behaviour and may be
