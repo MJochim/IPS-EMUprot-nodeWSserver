@@ -147,9 +147,9 @@
 
 		// load database-specific plugins
 		try {
-			loadAllPlugins(wsConnect);
+			loadPluginConfiguration(wsConnect);
 		} catch (error) {
-			// It was not possible to load all configured plugins
+			// It was not possible to load the configured plugin
 			sendMessage(wsConnect, mJSO.callbackID, false, 'The requested database could not be loaded');
 			log.info('Plugin loader failed, terminating connection.', 'clientID:', wsConnect.connectionID, '; Reason: ', error.message);
 			wsConnect.terminate();
@@ -182,7 +182,8 @@
 	};
 
 	/**
-	 * Look for a plugin configuration file in database and load the plugins.
+	 * Look for a plugin configuration file in database and load the plugin
+	 * specified there.
 	 *
 	 * The file must be named nodejs_server_plugins.json and reside at the
 	 * db's top level directory. It must contain a JSON object with the
@@ -192,7 +193,7 @@
 	 * @throws When loadPlugin() fails for one of the plugins.
 	 * @param wsConnect The connection object to attach the plugin to.
 	 */
-	function loadAllPlugins(wsConnect) {
+	function loadPluginConfiguration(wsConnect) {
 		// Read plugin configuration file
 		var pluginConfigPath = path.join(wsConnect.path2db, 'nodejs_server_plugins.json');
 
