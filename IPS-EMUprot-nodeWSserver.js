@@ -777,6 +777,7 @@
 	function defaultHandlerLogonUser(mJSO, wsConnect) {
 		var bundleListPath = path.join(
 			wsConnect.path2db,
+			'bundleLists',
 			path.normalize(mJSO.userName + '_bundleList.json')
 		);
 
@@ -844,7 +845,7 @@
 									} else {
 										wsConnect.bndlList = parsedData;
 									}
-									wsConnect.bndlListPath = path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json');
+									wsConnect.bndlListPath = bundleListPath;
 
 									sendMessage(wsConnect, mJSO.callbackID, true, '', 'LOGGEDON');
 								} else {
@@ -876,7 +877,7 @@
 							} else {
 								wsConnect.bndlList = parsedData;
 							}
-							wsConnect.bndlListPath = path.join(wsConnect.path2db, mJSO.userName + '_bundleList.json');
+							wsConnect.bndlListPath = bundleListPath;
 
 							// reply
 							sendMessage(wsConnect, mJSO.callbackID, true, '', 'LOGGEDON');
