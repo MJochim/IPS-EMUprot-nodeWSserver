@@ -149,7 +149,6 @@
 		try {
 			loadPluginConfiguration(wsConnect);
 		} catch (error) {
-			console.log("#############################")
 			// It was not possible to load the configured plugin
 			sendMessage(wsConnect, mJSO.callbackID, false, 'The requested database could not be loaded');
 			log.info('Plugin loader failed, closing connection.', 'clientID:', wsConnect.connectionID, '; Reason: ', error.message);
