@@ -151,8 +151,8 @@
 		} catch (error) {
 			// It was not possible to load the configured plugin
 			sendMessage(wsConnect, mJSO.callbackID, false, 'The requested database could not be loaded');
-			log.info('Plugin loader failed, terminating connection.', 'clientID:', wsConnect.connectionID, '; Reason: ', error.message);
-			wsConnect.terminate();
+			log.info('Plugin loader failed, closing connection.', 'clientID:', wsConnect.connectionID, '; Reason: ', error.message);
+			wsConnect.close();
 			return false;
 		}
 
