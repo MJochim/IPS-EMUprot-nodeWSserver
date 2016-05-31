@@ -4,18 +4,6 @@
  * @todo this plugin has been forked from the bas plugin. documentation has
  * to be rewritten. This plugin allows clients to create new bundles and
  * sessions, and to upload media files.
- *
- * This plugin allows databases to be accessed read-only via an
- * authorization token instead of a username and password. It was designed
- * for BAS to offer simple preview browsing of speech databases.
- *
- * The plugin does three things:
- * - Override any protocol functions that offer writing capabilities to the
- *   client.
- * - Modify the database configuration before it is sent to the client to
- *   disable the save button for bundles.
- * - Implement the authorization token to access databases.
- *
  */
 
 exports.pluginMessageHandlers = {
@@ -115,13 +103,10 @@ function writeBundleToDisk(sessionPath, bundleName, data, wsConnect) {
 			deferred.reject('Error writing annotation ' + err);
 		} else {
 			try {
-				main.log.info('in try catch now');
 				if (data.mediaFile) {
-					main.log.info('at mediaFile stuff');
 					var wave = new Buffer(data.mediaFile.data, 'base64');
 					fs.writeFileSync(mediaFilePath, wave);
 				}
-				main.log.info('past mediaFile stuff');
 
 				deferred.resolve();
 
@@ -137,7 +122,6 @@ function writeBundleToDisk(sessionPath, bundleName, data, wsConnect) {
 					deferred.resolve();
 				}
 			} catch (error) {
-				main.log.error('caught this', error);
 				deferred.reject(error);
 			}
 		}
@@ -147,7 +131,11 @@ function writeBundleToDisk(sessionPath, bundleName, data, wsConnect) {
 }
 
 function pluginHandlerGetProtocol(mJSO, wsConnect) {
-	// @todo GETPROTOCOL just isnt the right place for this. we should have an onConnection hook
+	var status = main.authoriseNewConnection(mJSO, wsConnect);
+	if (!status) {
+		return;
+	}
+
 	var authToken = wsConnect.urlQuery.authToken;
 	if (authToken === undefined) {
 		authToken = '';
@@ -169,8 +157,7 @@ function pluginHandlerGetProtocol(mJSO, wsConnect) {
 
 			try {
 				// safely parse data:
-				// @todo any difference between this and jsonlint.parse() ?
-				var parsedData = JSON.parse(data);
+				var parsedData = jsonlint.parse(data);
 				wsConnect.bndlList = parsedData;
 				wsConnect.bndlListPath = bundleListPath;
 				wsConnect.authorised = true;
