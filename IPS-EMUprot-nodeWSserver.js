@@ -140,6 +140,7 @@
 			return false;
 		}
 		wsConnect.path2db = urlParams.path2db;
+		console.log(wsConnect.path2db)
 		wsConnect.urlQuery = urlParams.query;
 		// Extract last component of path2db - this is the db's name
 		wsConnect.dbName = urlParams.dbName;
@@ -149,6 +150,7 @@
 		try {
 			loadPluginConfiguration(wsConnect);
 		} catch (error) {
+			console.log("#############################")
 			// It was not possible to load the configured plugin
 			sendMessage(wsConnect, mJSO.callbackID, false, 'The requested database could not be loaded');
 			log.info('Plugin loader failed, closing connection.', 'clientID:', wsConnect.connectionID, '; Reason: ', error.message);
