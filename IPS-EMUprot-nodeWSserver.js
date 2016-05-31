@@ -788,7 +788,6 @@
 					'; clientIP:', wsConnect._socket.remoteAddress);
 
 				// handle wrong user name
-				// @todo is this indeed a success?
 				sendMessage(wsConnect, mJSO.callbackID, true, '', 'BADUSERNAME');
 			} else {
 
@@ -853,9 +852,7 @@
 										'; clientID:', wsConnect.connectionID,
 										'; clientIP:', wsConnect._socket.remoteAddress);
 
-									// @todo is this indeed a success?
-									// @todo data should be in message is it
-									//       is not machine-readable, i'd say
+									// @todo this string ('cant login ..') should be in message rather than data I'd say, since it is not machine-readable
 									sendMessage(wsConnect, mJSO.callbackID, true, '', 'Can\'t log on with given credentials');
 								}
 							});
@@ -910,7 +907,6 @@
 								'; clientID:', wsConnect.connectionID,
 								'; clientIP:', wsConnect._socket.remoteAddress);
 
-							// @todo is this indeed a success?
 							sendMessage(wsConnect, mJSO.callbackID, true, '', 'Can\'t log on with given credentials');
 						}
 					});
@@ -957,8 +953,7 @@
 			function (reason) {
 				// Previous version did send data: bundle despite errors.
 				// @todo Does anybody depend on this behaviour?
-				sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
-					' reading bundle components');
+				sendMessage(wsConnect, mJSO.callbackID, false, 'Error reading bundle components');
 			}
 		);
 	}
@@ -1046,9 +1041,9 @@
 		// They initially reflect default behaviour and may be
 		// changed when database-specific plugins are loaded.
 		wsConnect.messageHandlers = {};
-		// @todo Object.assign is not available on our server's node version
-		Object.assign(wsConnect.messageHandlers, defaultMessageHandlers);
-
+		for (var i in defaultMessageHandlers) {
+			wsConnect.messageHandlers[i] = defaultMessageHandlers[i];
+		}
 
 		// append new connection to client list
 		clients.push(wsConnect);
