@@ -1009,7 +1009,8 @@
 		commitToGitRepo: commitToGitRepo,
 		readBundleFromDisk: readBundleFromDisk,
 		writeBundleToDisk: writeBundleToDisk,
-		readGlobalDBConfigFromDisk: readGlobalDBConfigFromDisk
+		readGlobalDBConfigFromDisk: readGlobalDBConfigFromDisk,
+		authoriseNewConnection: authoriseNewConnection
 	};
 	//
 	// End of default event handlers

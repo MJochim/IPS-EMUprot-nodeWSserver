@@ -55,7 +55,11 @@ function pluginHandlerLogonUser(mJSO, wsConnect) {
 }
 
 function pluginHandlerGetProtocol(mJSO, wsConnect) {
-	// @todo GETPROTOCOL just isnt the right place for this. we should have an onConnection hook
+	var status = main.authoriseNewConnection(mJSO, wsConnect);
+	if (!status) {
+		return;
+	}
+
 	var authToken = wsConnect.urlQuery.authToken;
 	if (authToken === undefined) {
 		authToken = '';
@@ -77,8 +81,7 @@ function pluginHandlerGetProtocol(mJSO, wsConnect) {
 
 			try {
 				// safely parse data:
-				// @todo any difference between this and jsonlint.parse() ?
-				var parsedData = JSON.parse(data);
+				var parsedData = jsonlint.parse(data);
 				wsConnect.bndlList = parsedData;
 				wsConnect.bndlListPath = bundleListPath;
 				wsConnect.authorised = true;
