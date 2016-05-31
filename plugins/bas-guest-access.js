@@ -80,16 +80,13 @@ function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
 				wsConnect.bndlListPath = bundleListPath;
 				wsConnect.authorised = true;
 
-				// Call original event handler
-				main.defaultHandlerGetProtocol(mJSO, wsConnect);
+				main.sendMessage(wsConnect, mJSO.callbackID, true, '', 'NO');
 			} catch (error) {
 				main.sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
 					' parsing _bundleList.json: ' + error);
 			}
 		}
 	});
-
-	main.sendMessage(wsConnect, mJSO.callbackID, true, '', 'NO');
 }
 
 
