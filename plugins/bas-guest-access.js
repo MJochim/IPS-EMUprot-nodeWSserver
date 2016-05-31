@@ -91,7 +91,6 @@ function pluginHandlerGetProtocol(mJSO, wsConnect) {
 			} catch (error) {
 				main.sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
 					' parsing _bundleList.json: ' + error);
-				main.log.info('caught exception in plugin');
 			}
 		}
 	});
