@@ -11,6 +11,10 @@
 
 + [github](http://github.com/raphywink)
 
+**Markus Jochim**
+
++ [github](http://github.com/mjochim)
+
 **Affiliations**
 
 [INSTITUTE OF PHONETICS AND SPEECH PROCESSING](http://www.en.phonetik.uni-muenchen.de/)
