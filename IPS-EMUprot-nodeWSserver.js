@@ -167,8 +167,8 @@
 	 * message is rejected as invalid. If there is, the respective handler
 	 * function is called.
 	 *
-	 * Plugins are allowed to override the handler functions for a number of
-	 * request types.
+	 * Plugins are allowed to override the handler functions for all request
+	 * types but GETPROTOCOL.
 	 */
 	var defaultMessageHandlers = {
 		GETPROTOCOL: defaultHandlerGetProtocol,
@@ -252,9 +252,6 @@
 		}
 
 		try {
-			if (typeof pluginMessageHandlers.GETPROTOCOL === 'function') {
-				wsConnect.messageHandlers.GETPROTOCOL = pluginMessageHandlers.GETPROTOCOL;
-			}
 			if (typeof pluginMessageHandlers.GETDOUSERMANAGEMENT === 'function') {
 				wsConnect.messageHandlers.GETDOUSERMANAGEMENT = pluginMessageHandlers.GETDOUSERMANAGEMENT;
 			}
