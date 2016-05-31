@@ -17,7 +17,6 @@
 exports.pluginMessageHandlers = {
 	GETGLOBALDBCONFIG: pluginHandlerGetGlobalDBConfig,
 	GETDOUSERMANAGEMENT: pluginHandlerGetDoUserManagement,
-	GETPROTOCOL: pluginHandlerGetProtocol,
 
 	SAVEBUNDLE: pluginHandlerSaveBundle,
 	LOGONUSER: pluginHandlerLogonUser
@@ -54,12 +53,7 @@ function pluginHandlerLogonUser(mJSO, wsConnect) {
 		' is a BAS guest access enabled database.');
 }
 
-function pluginHandlerGetProtocol(mJSO, wsConnect) {
-	var status = main.authoriseNewConnection(mJSO, wsConnect);
-	if (!status) {
-		return;
-	}
-
+function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
 	var authToken = wsConnect.urlQuery.authToken;
 	if (authToken === undefined) {
 		authToken = '';
@@ -94,9 +88,7 @@ function pluginHandlerGetProtocol(mJSO, wsConnect) {
 			}
 		}
 	});
-}
 
-function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
 	main.sendMessage(wsConnect, mJSO.callbackID, true, '', 'NO');
 }
 
