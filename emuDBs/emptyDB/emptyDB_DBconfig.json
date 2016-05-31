@@ -1,0 +1,44 @@
+{
+    "name": "emptyDB",
+    "UUID": "5EC11C40-1068-11E6-A407-A71D52357C51",
+    "mediafileExtension": "wav",
+    "ssffTrackDefinitions": [
+    ],
+    "levelDefinitions": [
+    ],
+    "linkDefinitions": [
+    ],
+    "EMUwebAppConfig": {
+        "perspectives": [
+            {
+                "name": "default",
+                "signalCanvases": {
+                    "order": [
+                        "OSCI",
+                        "SPEC"
+                    ],
+                    "assign": [
+
+                    ],
+                    "contourLims": [
+
+                    ]
+                },
+                "levelCanvases": {
+                    "order": [
+                    ]
+                },
+                "twoDimCanvases": {
+                    "order": [
+
+                    ]
+                }
+            }
+        ],
+        "activeButtons": {
+            "saveBundle": true,
+            "showHierarchy": true
+        }
+    }
+}
+

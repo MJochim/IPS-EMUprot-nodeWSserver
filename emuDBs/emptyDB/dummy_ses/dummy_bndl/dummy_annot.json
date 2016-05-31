@@ -1,0 +1,9 @@
+{
+  "name": "dummy",
+  "annotates": "dummy.wav",
+  "sampleRate": 44100,
+  "levels": [
+  ],
+  "links": [
+  ]
+}
