@@ -119,6 +119,46 @@
 		server: app
 	});
 
+
+	/**
+	 * This function is called by the GETPROTOCOL handler.
+	 * It loads the client-requested and the corresponding plugin.
+	 *
+	 * @returns boolean to indicate if an error occurred (-> false) or all
+	 * went well and we're all happy (-> true)
+	 */
+	function authoriseNewConnection (mJSO, wsConnect) {
+		// Parse URL and save which database the client requests to access.
+		// Also save any query parameters. WARNING The query parameters are
+		// stored in wsConnect.urlQuery WITHOUT BEING ESCAPED OR VALIDATED.
+		try {
+			var urlParams = parseURL(wsConnect.upgradeReq.url);
+		} catch (error) {
+			sendMessage(wsConnect, mJSO.callbackID, false, 'The requested database is not readable');
+			log.info('parseURL failed, closing connection.', 'clientID:', wsConnect.connectionID, '; error:', error);
+			wsConnect.close();
+			return false;
+		}
+		wsConnect.path2db = urlParams.path2db;
+		wsConnect.urlQuery = urlParams.query;
+		// Extract last component of path2db - this is the db's name
+		wsConnect.dbName = urlParams.dbName;
+
+
+		// load database-specific plugins
+		try {
+			loadAllPlugins(wsConnect);
+		} catch (error) {
+			// It was not possible to load all configured plugins
+			sendMessage(wsConnect, mJSO.callbackID, false, 'The requested database could not be loaded');
+			log.info('Plugin loader failed, terminating connection.', 'clientID:', wsConnect.connectionID, '; Reason: ', error.message);
+			wsConnect.terminate();
+			return false;
+		}
+
+		return true;
+	}
+
 	/**
 	 * These are callbacks functions for specific request types.
 	 *
@@ -715,10 +755,18 @@
 	//
 
 	function defaultHandlerGetProtocol(mJSO, wsConnect) {
-		sendMessage(wsConnect, mJSO.callbackID, true, '', {
-			'protocol': 'EMU-webApp-websocket-protocol',
-			'version': '0.0.2'
-		});
+		// if authoriseNewConnection() returns false, that means:
+		// - the function has failed
+		// - and it has already sent a reply to the client using mJSO.callbackID
+
+		var status = authoriseNewConnection(mJSO, wsConnect);
+
+		if (status) {
+			sendMessage(wsConnect, mJSO.callbackID, true, '', {
+				'protocol': 'EMU-webApp-websocket-protocol',
+				'version': '0.0.2'
+			});
+		}
 	}
 
 	function defaultHandlerGetDoUserManagement(mJSO, wsConnect) {
@@ -993,42 +1041,13 @@
 		// Has the user been authorised to use the database they requested?
 		wsConnect.authorised = false;
 
-		// Parse URL and save which database the client requests to access.
-		// Also save any query parameters. WARNING The query parameters are
-		// stored in wsConnect.urlQuery WITHOUT BEING ESCAPED OR VALIDATED.
-		try {
-			var urlParams = parseURL(wsConnect.upgradeReq.url);
-		} catch (error) {
-			// @todo is it okay to send empty callbackID?
-			sendMessage(wsConnect, '', false, 'The requested database is not readable');
-			log.info('parseURL failed, terminating connection.', 'clientID:', wsConnect.connectionID, '; error:', error);
-			wsConnect.terminate();
-			return;
-		}
-		wsConnect.path2db = urlParams.path2db;
-		wsConnect.urlQuery = urlParams.query;
-		// Extract last component of path2db - this is the db's name
-		wsConnect.dbName = urlParams.dbName;
-
 		// A set of pointers to event handler functions.
 		// They initially reflect default behaviour and may be
 		// changed when database-specific plugins are loaded.
 		wsConnect.messageHandlers = {};
+		// @todo Object.assign is not available on our server's node version
 		Object.assign(wsConnect.messageHandlers, defaultMessageHandlers);
 
-		// load database-specific plugins
-		try {
-			loadAllPlugins(wsConnect);
-		} catch (error) {
-			// It was not possible to load all configured plugins
-			// @todo is it okay to send empty callbackID?
-			sendMessage(wsConnect, '', false, 'The requested database could not be loaded');
-			log.info('Plugin loader failed, terminating connection.', 'clientID:', wsConnect.connectionID, '; Reason: ', error.message);
-			wsConnect.terminate();
-			return;
-		}
-
-		// @todo offer onConnect hook for plugins? - otherwise GETPROTOCOL will be misused for the reason
 
 		// append new connection to client list
 		clients.push(wsConnect);
