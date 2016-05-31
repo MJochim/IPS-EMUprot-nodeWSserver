@@ -31,6 +31,7 @@ var main = require.main.exports;
 
 var path = require('path');
 var fs = require('fs');
+var jsonlint = require('jsonlint');
 
 function pluginHandlerSaveBundle(mJSO, wsConnect) {
 	main.log.info('Attempted to save a bundle with BAS guest access. DB:' +

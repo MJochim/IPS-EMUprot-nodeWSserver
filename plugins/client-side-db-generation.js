@@ -24,6 +24,7 @@ var main = require.main.exports;
 var path = require('path');
 var fs = require('fs');
 var Q = require('q');
+var jsonlint = require('jsonlint');
 
 function emptySuccessResponse(mJSO, wsConnect) {
 	main.sendMessage(wsConnect, mJSO.callbackID, true);
