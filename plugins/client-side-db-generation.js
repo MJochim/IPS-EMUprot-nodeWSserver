@@ -9,7 +9,6 @@
 exports.pluginMessageHandlers = {
 	GETGLOBALDBCONFIG: pluginHandlerGetGlobalDBConfig,
 	GETDOUSERMANAGEMENT: pluginHandlerGetDoUserManagement,
-	GETPROTOCOL: pluginHandlerGetProtocol,
 
 	SAVEBUNDLE: pluginHandlerSaveBundle,
 	LOGONUSER: emptySuccessResponse
@@ -130,12 +129,7 @@ function writeBundleToDisk(sessionPath, bundleName, data, wsConnect) {
 	return deferred.promise;
 }
 
-function pluginHandlerGetProtocol(mJSO, wsConnect) {
-	var status = main.authoriseNewConnection(mJSO, wsConnect);
-	if (!status) {
-		return;
-	}
-
+function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
 	var authToken = wsConnect.urlQuery.authToken;
 	if (authToken === undefined) {
 		authToken = '';
@@ -162,21 +156,14 @@ function pluginHandlerGetProtocol(mJSO, wsConnect) {
 				wsConnect.bndlListPath = bundleListPath;
 				wsConnect.authorised = true;
 
-				// Call original event handler
-				main.defaultHandlerGetProtocol(mJSO, wsConnect);
+				main.sendMessage(wsConnect, mJSO.callbackID, true, '', 'NO');
 			} catch (error) {
 				main.sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
 					' parsing _bundleList.json: ' + error);
-				main.log.info('caught exception in plugin');
 			}
 		}
 	});
 }
-
-function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
-	main.sendMessage(wsConnect, mJSO.callbackID, true, '', 'NO');
-}
-
 
 function pluginHandlerGetGlobalDBConfig(mJSO, wsConnect) {
 	var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.dbName + '_DBconfig.json'));
