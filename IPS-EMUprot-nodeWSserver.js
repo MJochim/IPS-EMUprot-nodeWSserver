@@ -286,9 +286,9 @@
 
 	/**
 	 * Parse a URL into path and query string. This is used whenever a
-	 * connection is established. Additionally, check whether the path
-	 * resolves to a readable directory. (It is not checked whether
-	 * the directory actually contains a database.)
+	 * connection is established (by the GETPROTOCOL handler). Additionally,
+	 * check whether the path resolves to a readable directory. (It is not
+	 * checked whether the directory actually contains a database.)
 	 *
 	 * Returns an object with the properties dbName, path2db and query.
 	 * dbName is the URL's path component, in normalised form.
