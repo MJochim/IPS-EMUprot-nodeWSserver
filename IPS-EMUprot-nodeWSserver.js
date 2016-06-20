@@ -447,6 +447,12 @@
 	 */
 	function checkCredentialsInSQLiteDB(username, pwd, callback) {
 		usersDB.all("SELECT * FROM users WHERE username='" + username + "'", function (err, rows) {
+			if (err !== null) {
+				log.error('SQLite database error: ', err);
+				callback(false);
+				return;
+			}
+			
 			if (rows.length !== 1) {
 				callback(false);
 			} else {
