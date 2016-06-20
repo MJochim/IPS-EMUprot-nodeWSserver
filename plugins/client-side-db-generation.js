@@ -137,6 +137,7 @@ function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
 	}
 	var bundleListPath = path.join(
 		wsConnect.path2db,
+		'bundleLists',
 		path.normalize(authToken + '_bundleList.json')
 	);
 
