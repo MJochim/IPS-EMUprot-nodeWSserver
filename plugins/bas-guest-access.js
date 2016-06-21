@@ -68,7 +68,7 @@ function pluginHandlerGetDoUserManagement(mJSO, wsConnect) {
 	fs.readFile(bundleListPath, 'utf8', function (err, data) {
 		if (err) {
 			main.log.info('Error reading _bundleList.json: ' + err,
-					'; bundleListPath:' bundleListPath,
+					'; bundleListPath:', bundleListPath,
 					'; clientID:', wsConnect.connectionID,
 					'; clientIP:', wsConnect._socket.remoteAddress);
 
