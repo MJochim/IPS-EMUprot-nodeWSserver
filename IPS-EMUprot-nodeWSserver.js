@@ -139,7 +139,6 @@
 			return false;
 		}
 		wsConnect.path2db = urlParams.path2db;
-		console.log(wsConnect.path2db)
 		wsConnect.urlQuery = urlParams.query;
 		// Extract last component of path2db - this is the db's name
 		wsConnect.dbName = urlParams.dbName;
