@@ -35,7 +35,7 @@ var fs = require('fs');
 var sqlite3 = require('sqlite3').verbose();
 var path = require('path');
 var readline = require('readline');
-var bcrypt = require('bcrypt');
+var bcrypt = require('bcryptjs');
 
 // get options
 var option = process.argv[2];

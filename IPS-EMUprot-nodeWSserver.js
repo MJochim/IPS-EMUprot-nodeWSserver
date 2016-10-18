@@ -44,7 +44,7 @@
 	var bunyan = require('bunyan');
 	var ldap = require('ldapjs');
 	var exec = require('child_process').exec;
-	var bcrypt = require('bcrypt');
+	var bcrypt = require('bcryptjs');
 	var sqlite3 = require('sqlite3').verbose();
 	var async = require('async');
 	var Q = require('q');
