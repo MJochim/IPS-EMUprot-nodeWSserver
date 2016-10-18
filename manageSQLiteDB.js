@@ -5,7 +5,7 @@
  *
  * > CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, password TEXT, salt TEXT)
  *
- * All passwords are stored as hashes using the bcrypt package: https://www.npmjs.com/package/bcrypt-nodejs
+ * All passwords are stored as hashes using the bcrypt package: https://www.npmjs.com/package/bcryptjs
  *
  * --------------------------------------------------------
  *
