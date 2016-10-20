@@ -18,3 +18,9 @@
 **Affiliations**
 
 [INSTITUTE OF PHONETICS AND SPEECH PROCESSING](http://www.en.phonetik.uni-muenchen.de/)
+
+
+## For Maintainers
+
+Be sure to check and update the /vnbdata/emuDBs/README file if any breaking changes / new features are implemented!
+This will probably not be necessary any more once people start using the manager.
