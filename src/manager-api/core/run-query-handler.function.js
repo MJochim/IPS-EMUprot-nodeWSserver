@@ -2,6 +2,7 @@
 
 const EmuError = require('../../core/emu-error.class.js').EmuError;
 const listTags = require('../query-handlers/list-tags.function.js').listTags;
+const projectInfo = require("../query-handlers/project-info.function.js").projectInfo;
 
 /**
  * This function only looks at <userInput.query> (a client-supplied string) and
@@ -100,6 +101,12 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			);
 			break;
 
+		case 'projectInfo':
+			promise = projectInfo(
+				userInput.project
+			);
+			break;
+
 		case 'renameDB':
 			promise = renameDB(
 				userInput.project,
@@ -117,15 +124,6 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			);
 			break;
 
-		case 'setDatabaseConfiguration':
-			promise = setDatabaseConfiguration(
-				userInput.project,
-				userInput.databaseName,
-				userInput.bundleComments,
-				userInput.bundleFinishedEditing
-			);
-			break;
-
 		case 'saveUpload':
 			promise = saveUpload(
 				userInput.project,
@@ -134,9 +132,12 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			);
 			break;
 
-		case 'projectInfo':
-			promise = projectInfo(
-				userInput.project
+		case 'setDatabaseConfiguration':
+			promise = setDatabaseConfiguration(
+				userInput.project,
+				userInput.databaseName,
+				userInput.bundleComments,
+				userInput.bundleFinishedEditing
 			);
 			break;
 
