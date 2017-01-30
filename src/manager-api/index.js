@@ -19,46 +19,38 @@ const authorize = require('./core-functions/authorize.function.js').authorize;
 const config = require('../config.js').config;
 const EmuError = require('../core/emu-error.class.js').EmuError;
 const runQueryHandler = require('./core-functions/run-query-handler.function.js').runQueryHandler;
-const validateUserInput = require('./core-functions/validate-user-input.function.js').validateUserInput;
+const ValidUserInput = require("./core-functions/valid-user-input.class.js").ValidUserInput;
 
-function httpConnectionCallback (request, response) {
+function httpConnectionCallback(request, response) {
 	//
 	// Parse and validate user input
 	//
-	// The validator DOES guarantee that all properties present on userInput
-	// are safe, but it DOES NOT guarantee that all required properties are
-	// present.
-	//
+	let realUserInput = url.parse(request.url, true).query;
+	let validUserInput = new ValidUserInput();
 
-	var userInput = url.parse(request.url, true).query;
-	var userInputValid = validateUserInput(userInput);
-	
-	if (!userInputValid) {
-		response.write(JSON.stringify({
-			success: false,
-			data: 'E_INVALID_USER_INPUT',
-			message: ''
-		}));
-		response.end();
-		return;
-	}
+	// The ValidUserInput class is synchronous, but we need it async
+	let userInputAsync = new Promise((resolve) => {
+		resolve(validUserInput.update(realUserInput));
+	});
 
-	//
-	// Check whether <password> is right for <username>
-	//
-	authenticate (userInput.username, userInput.password)
-		.then (() => {
+	userInputAsync
+		.then(() => {
+			// Check whether <password> is right for <username>
+			return authenticate(validUserInput.username, validUserInput.password)
+		})
+		.then(() => {
 			// Check whether <username> is allowed to perform <query> on <project>
-			return authorize (userInput.username, userInput.query, userInput.project);
+			return authorize(validUserInput.username, validUserInput.query, validUserInput.project);
 		})
-		.then (() => {
-			return runQueryHandler (userInput);
+		.then(() => {
+			// Perform the actual stuff
+			return runQueryHandler(validUserInput);
 		})
-		.then ((queryResult) => {
+		.then((queryResult) => {
 			response.write(JSON.stringify(queryResult));
 			response.end();
 		})
-		.catch ((error) => {
+		.catch((error) => {
 			if (error instanceof EmuError) {
 				if (error.visibleToClient) {
 					response.write(JSON.stringify({
@@ -92,7 +84,7 @@ function httpConnectionCallback (request, response) {
 // Start up the server
 //
 
-var server = http.createServer(httpConnectionCallback);
+let server = http.createServer(httpConnectionCallback);
 
 server.listen(config.managerAPI.port, () => {
 	console.log("Server listening on: http://localhost:%s", config.managerAPI.port);
