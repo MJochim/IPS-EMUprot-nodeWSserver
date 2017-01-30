@@ -21,4 +21,4 @@ exports.listTags = function (authToken, databaseName) {
 		//setTimeout(function () { resolve('aer'+Date.now()); }, 5000);
 		resolve('yes');
 	});
-}
+};

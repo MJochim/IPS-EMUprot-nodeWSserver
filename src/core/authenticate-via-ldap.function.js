@@ -27,9 +27,9 @@ exports.authenticateViaLDAP = function (username, password) {
 
 		// Construct the DN (distinguished name) to bind to the directory server
 		// with
-		var binddn = config.ldap.bindDNLeft + username + config.ldap.bindDNRight;
+		let bindDN = config.ldap.bindDNLeft + username + config.ldap.bindDNRight;
 
-		var ldapClient = ldapjs.createClient({
+		let ldapClient = ldapjs.createClient({
 			url: config.ldap.address
 			// log: log // @todo the nodejs-ws-server includes Bunyan. Do we, too?
 		});
@@ -39,7 +39,7 @@ exports.authenticateViaLDAP = function (username, password) {
 		});
 
 		// Try to bind
-		ldapClient.bind(binddn, password, function (error) {
+		ldapClient.bind(bindDN, password, function (error) {
 			if (error) {
 				ldapClient.unbind();
 				if (error instanceof ldapjs.InvalidCredentialsError) {

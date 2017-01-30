@@ -11,7 +11,7 @@ const listTags = require('../query-handlers/list-tags.function.js').listTags;
  * and authorized before calling this function.
  */
 exports.runQueryHandler = function (userInput) {
-	var promise;
+	let promise;
 
 	switch (userInput.query) {
 		case 'addTag':
@@ -151,4 +151,4 @@ exports.runQueryHandler = function (userInput) {
 	}
 
 	return promise;
-}
+};
