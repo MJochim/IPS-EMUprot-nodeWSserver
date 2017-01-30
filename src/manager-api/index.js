@@ -70,7 +70,11 @@ function httpConnectionCallback(request, response) {
 			return runQueryHandler(validUserInput, userInputFiles);
 		})
 		.then((queryResult) => {
-			response.write(JSON.stringify(queryResult));
+			response.write(JSON.stringify({
+				success: true,
+				data: 'E_SUCCESS',
+				message: queryResult
+			}));
 			response.end();
 		})
 		.catch((error) => {
