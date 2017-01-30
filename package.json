@@ -1,0 +1,16 @@
+{
+  "name": "emu-server",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Markus Jochim",
+  "license": "MIT",
+  "dependencies": {
+    "ldapjs": "^1.0.1",
+    "pg": "^6.1.2",
+    "sqlite3": "^3.1.8"
+  }
+}
