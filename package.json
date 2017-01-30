@@ -1,14 +1,16 @@
 {
   "name": "emu-server",
   "version": "0.1.0",
-  "description": "",
+  "description": "NodeJS-based server that implement the emuDB Manager API and the EMU-webApp-websocket-protocol",
   "main": "index.js",
+  "repository": "MJochim/emu-server",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Markus Jochim",
   "license": "MIT",
   "dependencies": {
+    "formidable": "^1.1.1",
     "ldapjs": "^1.0.1",
     "pg": "^6.1.2",
     "sqlite3": "^3.1.8"
