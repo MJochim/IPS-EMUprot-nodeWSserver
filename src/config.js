@@ -7,6 +7,8 @@ exports.config = {
 	path2emuDBs: "emuDBs",
 	*/
 
+	dataDirectory: "emuDBs",
+
 	ldap: {
 		enabled: true,
 		address: "ldaps://ldap.phonetik.uni-muenchen.de:636",
