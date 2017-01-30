@@ -16,11 +16,11 @@ const http = require('http');
 const url = require('url');
 
 const authenticate = require('../core/authenticate.function.js').authenticate;
-const authorize = require('./core-functions/authorize.function.js').authorize;
+const authorize = require('./core/authorize.function.js').authorize;
 const config = require('../config.js').config;
 const EmuError = require('../core/emu-error.class.js').EmuError;
-const runQueryHandler = require('./core-functions/run-query-handler.function.js').runQueryHandler;
-const ValidUserInput = require("./core-functions/valid-user-input.class.js").ValidUserInput;
+const runQueryHandler = require('./core/run-query-handler.function.js').runQueryHandler;
+const ValidUserInput = require("./core/valid-user-input.class.js").ValidUserInput;
 
 function httpConnectionCallback(request, response) {
 	// @todo  handle request.onError and response.onError
