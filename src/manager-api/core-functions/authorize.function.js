@@ -11,7 +11,7 @@ const config = require('../../config.js').config;
  *
  * Returns a promise. The promise is resolved, without a value, if authorization
  * passes. The promise is rejected with an AuthorizationError if authorization
- * does not pass. The promis is rejected with an exception in case of a runtime
+ * does not pass. The promise is rejected with an exception in case of a runtime
  * error.
  *
  * Note that for a few (very few) <queries>, <project> is left undefined.
@@ -34,8 +34,11 @@ exports.authorize = function (username, query, project) {
 		promise
 			.then((level) => {
 				switch (query) {
-					case 'listProject':
+					case 'downloadDatabase':
+					case 'listCommits':
 					case 'listTags':
+					case 'login':
+                    case 'projectInfo':
 						if (level === 'rw' || level === 'ro') {
 							resolve();
 						} else {
@@ -44,8 +47,17 @@ exports.authorize = function (username, query, project) {
 
 						break;
 
+					case 'addTag':
+					case 'createArchive':
+					case 'deleteBundleList':
+					case 'deleteUpload':
+					case 'editBundleList':
+					case 'fastForward':
+					case 'mergeUpload':
+					case 'saveBundleList':
+					case 'setDatabaseConfiguration':
 					case 'saveUpload':
-					case '...':
+					case 'upload':
 						if (level === 'rw') {
 							resolve();
 						} else {
