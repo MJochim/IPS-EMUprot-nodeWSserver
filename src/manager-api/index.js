@@ -11,6 +11,7 @@
 
 "use strict";
 
+const formidable = require('formidable');
 const http = require('http');
 const url = require('url');
 
@@ -22,18 +23,40 @@ const runQueryHandler = require('./core-functions/run-query-handler.function.js'
 const ValidUserInput = require("./core-functions/valid-user-input.class.js").ValidUserInput;
 
 function httpConnectionCallback(request, response) {
+	// @todo  handle request.onError and response.onError
+
 	//
-	// Parse and validate user input
+	// This object will later hold the real user input
 	//
-	let realUserInput = url.parse(request.url, true).query;
 	let validUserInput = new ValidUserInput();
 
-	// The ValidUserInput class is synchronous, but we need it async
-	let userInputAsync = new Promise((resolve) => {
-		resolve(validUserInput.update(realUserInput));
+	let userInputFiles = [];
+
+	//
+	// The Formidable library parses the HTTP body for us (POST and files).
+	// It is not Promise-based, so we need to transform it ourselves.
+	//
+	let formidablePromise = new Promise((resolve, reject) => {
+		let form = new formidable.IncomingForm();
+
+		form.parse(request, (error, fields, files) => {
+			if (error !== null) {
+				reject(error);
+				return;
+			}
+
+			// Validate user input
+			try {
+				validUserInput.update(fields);
+				userInputFiles = files;
+				resolve();
+			} catch (error) {
+				reject(error);
+			}
+		});
 	});
 
-	userInputAsync
+	formidablePromise
 		.then(() => {
 			// Check whether <password> is right for <username>
 			return authenticate(validUserInput.username, validUserInput.password)
@@ -44,7 +67,7 @@ function httpConnectionCallback(request, response) {
 		})
 		.then(() => {
 			// Perform the actual stuff
-			return runQueryHandler(validUserInput);
+			return runQueryHandler(validUserInput, userInputFiles);
 		})
 		.then((queryResult) => {
 			response.write(JSON.stringify(queryResult));

@@ -10,7 +10,7 @@ const listTags = require('../query-handlers/list-tags.function.js').listTags;
  * IMPORTANT: userInput must be validated, and the user must be authenticated
  * and authorized before calling this function.
  */
-exports.runQueryHandler = function (userInput) {
+exports.runQueryHandler = function (userInput, userInputFiles) {
 	let promise;
 
 	switch (userInput.query) {
