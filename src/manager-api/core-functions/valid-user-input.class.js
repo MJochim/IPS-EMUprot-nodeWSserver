@@ -65,7 +65,7 @@ exports.ValidUserInput = class {
 	 * @param newUserInput
 	 */
 	update(newUserInput) {
-		let valid = this.makeValid(newUserInput);
+		this.makeValid(newUserInput);
 
 		for (let i in newUserInput) {
 			this[i] = newUserInput[i];

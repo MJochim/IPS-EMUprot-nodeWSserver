@@ -106,7 +106,6 @@ function httpConnectionCallback(request, response) {
 //
 // Start up the server
 //
-
 let server = http.createServer(httpConnectionCallback);
 
 server.listen(config.managerAPI.port, () => {
