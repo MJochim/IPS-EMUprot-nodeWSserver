@@ -1,6 +1,6 @@
-"use strict";
+'use strict';
 
-const UserInputError = require("../../core/user-input-error.class.js").UserInputError;
+const UserInputError = require('../../core/user-input-error.class.js').UserInputError;
 
 /**
  * This class is the place where all dangerous user input gets rejected.
@@ -94,15 +94,15 @@ exports.ValidUserInput = class {
 			switch (i) {
 				case 'project':
 				case 'query':
-
+				//
 				case 'databaseName':
 				case 'newDatabaseName':
 				case 'oldDatabaseName':
-
+				//
 				case 'archiveLabel':
 				case 'newArchiveLabel':
 				case 'oldArchiveLabel':
-
+				//
 				case 'gitTagLabel':
 				case 'gitTreeish':
 				case 'uploadUUID':

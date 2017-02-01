@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const DirectoryTraversal = require('../../core/directory-traversal.class').DirectoryTraversal;
 

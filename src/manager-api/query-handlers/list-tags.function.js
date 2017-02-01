@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 exports.listTags = function (authToken, databaseName) {
 	/*
@@ -19,6 +19,7 @@ exports.listTags = function (authToken, databaseName) {
 
 	return new Promise (function (resolve, reject) {
 		//setTimeout(function () { resolve('aer'+Date.now()); }, 5000);
-		resolve('yes');
+		resolve(databaseName);
+		reject();
 	});
 };

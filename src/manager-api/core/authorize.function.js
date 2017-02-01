@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const pg = require('pg');
 const sqlite3 = require('sqlite3');
@@ -38,7 +38,7 @@ exports.authorize = function (username, query, project) {
 					case 'listCommits':
 					case 'listTags':
 					case 'login':
-                    case 'projectInfo':
+					case 'projectInfo':
 						if (level === 'rw' || level === 'ro') {
 							resolve();
 						} else {
@@ -93,9 +93,9 @@ function authorizeViaPgSQL (username, project) {
 			}
 
 			client.query(
-                "SELECT * FROM authorizations " +
-                "JOIN projects ON projects.id=authorizations.project " +
-                "WHERE username=$1 AND projects.name=$2",
+                'SELECT * FROM authorizations ' +
+                'JOIN projects ON projects.id=authorizations.project ' +
+                'WHERE username=$1 AND projects.name=$2',
 				[username, project],
 				(error, result) => {
 					if (error) {
@@ -132,9 +132,9 @@ function authorizeViaSQLite (username, project) {
 
 
 				db.all(
-					"SELECT * FROM authorizations " +
-					"JOIN projects ON projects.id=authorizations.project " +
-                    "WHERE username=? AND projects.name=?",
+					'SELECT * FROM authorizations ' +
+					'JOIN projects ON projects.id=authorizations.project ' +
+                    'WHERE username=? AND projects.name=?',
 					{1: username, 2: project},
 					(error, rows) => {
 						if (error !== null) {

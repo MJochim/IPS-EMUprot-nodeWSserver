@@ -1,8 +1,8 @@
-"use strict";
+'use strict';
 
 const EmuError = require('../../core/emu-error.class.js').EmuError;
 const listTags = require('../query-handlers/list-tags.function.js').listTags;
-const projectInfo = require("../query-handlers/project-info.function.js").projectInfo;
+const projectInfo = require('../query-handlers/project-info.function.js').projectInfo;
 
 /**
  * This function only looks at <userInput.query> (a client-supplied string) and
