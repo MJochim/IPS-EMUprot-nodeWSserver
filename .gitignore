@@ -1,5 +1,6 @@
 # npm stuff
 node_modules/*
+npm-debug.log
 
 # certificates and keys
 certs/*

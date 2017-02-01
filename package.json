@@ -5,6 +5,8 @@
   "main": "index.js",
   "repository": "MJochim/emu-server",
   "scripts": {
+    "eslint": "eslint",
+    "lint": "eslint src/manager-api/**/*.js",
     "jasmine": "jasmine",
     "test": "jasmine"
   },
@@ -17,6 +19,7 @@
     "sqlite3": "^3.1.8"
   },
   "devDependencies": {
+    "eslint": "^3.14.1",
     "jasmine": "^2.5.3"
   }
 }
