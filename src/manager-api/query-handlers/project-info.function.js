@@ -19,6 +19,9 @@ exports.projectInfo = function (project) {
 			.then((projectObject) => {
 				projectObject.name = project;
 				resolve(projectObject);
+			})
+			.catch((error) => {
+				reject(error);
 			});
 	});
 };

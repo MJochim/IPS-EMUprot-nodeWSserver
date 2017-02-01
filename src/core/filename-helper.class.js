@@ -5,6 +5,9 @@ const path = require('path');
 const config = require('../config.js').config;
 
 exports.FilenameHelper = class FilenameHelper {
+	//
+	// Paths that belong to the whole project
+	//
 	static projectDirectory(project) {
 		return path.join(
 			config.dataDirectory,
@@ -33,6 +36,9 @@ exports.FilenameHelper = class FilenameHelper {
 		);
 	}
 
+	//
+	// Paths that belong to a given database
+	//
 	static databaseDirectory (project, database) {
 		return path.join(
 			FilenameHelper.projectDatabasesDirectory(project),
@@ -45,6 +51,31 @@ exports.FilenameHelper = class FilenameHelper {
 			FilenameHelper.databaseDirectory (project, database),
 			database + '_DBconfig.json'
 		);
+	}
+
+	static databaseBundleListsDirectory (project, database) {
+		return path.join(
+			FilenameHelper.databaseDirectory(project, database),
+			'bundleLists'
+		);
+	}
+
+	static databaseArchiveLabelDirectory (project, database, archiveLabel) {
+		if (archiveLabel) {
+			return path.join(
+				FilenameHelper.databaseBundleListsDirectory(project, database),
+				archiveLabel + '_archiveLabel'
+			);
+		} else {
+			return FilenameHelper.databaseBundleListsDirectory(project, database);
+		}
+	}
+
+	static databaseBundleListFile (project, database, archiveLabel, bundleList) {
+		return path.join(
+			FilenameHelper.databaseArchiveLabelDirectory(project, database, archiveLabel),
+			bundleList + 'bundleList.json'
+		)
 	}
 
 	static databaseSessionDirectory (project, database, session) {
@@ -61,6 +92,9 @@ exports.FilenameHelper = class FilenameHelper {
 		);
 	}
 
+	//
+	// Paths that belong to a given upload
+	//
 	static uploadDirectory (project, upload) {
 		return path.join(
 			FilenameHelper.projectUploadsDirectory(project),
