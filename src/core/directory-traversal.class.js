@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+var Upload = require("./upload.class.js").Upload;
 
 const Download = require('./download.class').Download;
 const FilenameHelper = require('./filename-helper.class').FilenameHelper;
@@ -36,7 +37,64 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 	}
 
 	static projectUploadsDirectory(project) {
-		return Promise.resolve([]);
+		return new Promise.resolve((resolve, reject) => {
+			let uploadsPath = FilenameHelper.projectUploadsDirectory(project);
+			let result = [];
+
+			fs.readdir(uploadsPath, (error, files) => {
+				try {
+					if (error !== null) {
+						reject(error);
+						return;
+					}
+
+					// Each directory corresponds to one upload. The dir's name is
+					// expected to be a UUIDv4 (which however is not verified).
+					for (let i = 0; i < files.length; ++i) {
+						let currentUpload = new Upload();
+						currentUpload.uuid = files[i];
+
+						let stat = fs.statSync(path.join(
+							uploadsPath,
+							files[i]
+						));
+						// @todo does fs.statSync() return or throw on error?
+
+						// @todo ensure proper format of date
+						currentUpload.date = stat.mtime.toString();
+
+						/*
+						 $databaseName = findDatabaseInUpload($directory . '/' . $entry);
+
+						 if ($databaseName->success !== true) {
+						 $upload->name = 'INVALID_UPLOAD_' . $databaseName->data;
+						 $upload->sessions = array();
+						 } else {
+						 $upload->name = $databaseName->data;
+						 $databaseDir = $directory . '/' . $entry . '/data/' .
+						 $upload->name . '_emuDB';
+
+						 // Read the sessions contained in the upload
+						 $db = readDatabase($databaseDir);
+						 if ($db->success !== true) {
+						 $upload->name = 'INVALID_UPLOAD';
+						 $upload->sessions = array();
+						 } else {
+						 $upload->sessions = $db->data->sessions;
+						 }
+						 }
+
+						 */
+
+						result.push(currentUpload);
+					}
+
+					resolve(result);
+				} catch (error) {
+					reject(error);
+				}
+			});
+		});
 	}
 
 	static projectDownloadsDirectory(project) {
@@ -82,8 +140,10 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 							downloadsPath,
 							files[i]
 						));
+						// @todo does fs.statSync() return or throw on error?
 
 						currentDownload.size = stat.size;
+						// @todo ensure proper format of date
 						currentDownload.date = stat.mtime.toString();
 
 						result.push(currentDownload);
