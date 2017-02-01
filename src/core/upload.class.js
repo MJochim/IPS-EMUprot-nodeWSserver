@@ -4,5 +4,6 @@ exports.Upload = class {
 		this.date = '';
 		this.name = '';
 		this.sessions = [];
+		this.error = '';
 	}
 };

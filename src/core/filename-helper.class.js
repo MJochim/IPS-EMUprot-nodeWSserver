@@ -22,7 +22,7 @@ exports.FilenameHelper = class FilenameHelper {
 	static projectUploadsDirectory (project) {
 		return path.join(
 			FilenameHelper.projectDirectory(project),
-			'upload'
+			'uploads'
 		);
 	}
 
@@ -59,5 +59,26 @@ exports.FilenameHelper = class FilenameHelper {
 			FilenameHelper.databaseSessionDirectory (project, database, session),
 			bundle + '_bndl'
 		);
+	}
+
+	static uploadDirectory (project, upload) {
+		return path.join(
+			FilenameHelper.projectUploadsDirectory(project),
+			upload
+		);
+	}
+
+	static uploadDataDirectory (project, upload) {
+		return path.join(
+			FilenameHelper.uploadDirectory(project, upload),
+			'data'
+		);
+	}
+
+	static uploadDatabaseDirectory (project, upload, database) {
+		return path.join(
+			FilenameHelper.uploadDataDirectory(project, upload),
+			database + '_emuDB'
+		)
 	}
 };

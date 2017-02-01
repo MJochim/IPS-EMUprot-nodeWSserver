@@ -15,11 +15,10 @@ exports.projectInfo = function (project) {
 		// @todo lock project
 
 		// Find all things in the project directory
-		let result = DirectoryTraversal.projectDirectory(project);
-
-		// Project name and description
-		result.name = project;
-
-		resolve(result);
+		DirectoryTraversal.projectDirectory(project)
+			.then((projectObject) => {
+				projectObject.name = project;
+				resolve(projectObject);
+			});
 	});
 };
