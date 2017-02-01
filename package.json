@@ -6,7 +6,8 @@
   "repository": "MJochim/emu-server",
   "scripts": {
     "eslint": "eslint",
-    "lint": "eslint src/manager-api/**/*.js",
+    "lint": "eslint src/manager-api/**/*.js --ignore-pattern *.spec.js",
+    "lintSpec": "eslint src/manager-api/**/*.spec.js",
     "jasmine": "jasmine",
     "test": "jasmine"
   },
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "eslint": "^3.14.1",
-    "jasmine": "^2.5.3"
+    "jasmine": "^2.5.3",
+    "proxyquire": "^1.7.11"
   }
 }
