@@ -54,6 +54,7 @@ exports.authorize = function (username, query, project) {
 					case 'editBundleList':
 					case 'fastForward':
 					case 'mergeUpload':
+					case 'renameDatabase':
 					case 'saveBundleList':
 					case 'setDatabaseConfiguration':
 					case 'saveUpload':

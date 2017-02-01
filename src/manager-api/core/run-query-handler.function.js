@@ -107,8 +107,8 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			);
 			break;
 
-		case 'renameDB':
-			promise = renameDB(
+		case 'renameDatabase':
+			promise = renameDatabase(
 				userInput.project,
 				userInput.oldDatabaseName,
 				userInput.newDatabaseName
