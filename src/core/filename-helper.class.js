@@ -74,7 +74,7 @@ exports.FilenameHelper = class FilenameHelper {
 	static databaseBundleListFile (project, database, archiveLabel, bundleList) {
 		return path.join(
 			FilenameHelper.databaseArchiveLabelDirectory(project, database, archiveLabel),
-			bundleList + 'bundleList.json'
+			bundleList + '_bundleList.json'
 		)
 	}
 

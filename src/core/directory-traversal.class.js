@@ -272,7 +272,7 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 			let result = new Database();
 			result.name = database;
 
-			resolve(DirectoryTraversal.databaseBundleListsDirectory(project, database)
+			DirectoryTraversal.databaseBundleListsDirectory(project, database)
 				.then((bundleLists) => {
 					result.bundleLists = bundleLists;
 
@@ -317,7 +317,9 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 
 					resolve(result);
 				})
-			);
+				.catch((error) => {
+					reject(error);
+				})
 		});
 	}
 
@@ -375,7 +377,13 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 			// Get a list of all bundle lists on the top level (with
 			// archive label == '') and a list of all archive labels
 			//
-			let files = fs.readdirSync(bundleListsPath);
+			let files;
+			try {
+				files = fs.readdirSync(bundleListsPath);
+			} catch (error) {
+				resolve(result);
+				return;
+			}
 
 			let bundleLists = files
 				.filter ((e) => {
