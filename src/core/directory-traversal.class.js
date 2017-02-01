@@ -19,6 +19,11 @@ const ProjectDataset = require("./project-dataset.class.js").ProjectDataset;
  * @type {DirectoryTraversal}
  */
 exports.DirectoryTraversal = class DirectoryTraversal {
+	/**
+	 *
+	 * @param {string} project - Project identifier
+	 * @returns {Promise<ProjectDataset, Error>}
+	 */
 	static projectDirectory(project) {
 		return new Promise((resolve, reject) => {
 			let result = new ProjectDataset();
@@ -42,10 +47,36 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 		});
 	}
 
-	static projectDatabasesDirectory(project) {
+	/**
+	 * Traverse the databases directory of a project and return an array of
+	 * {@link Database} objects.
+	 *
+	 * The databases directory usually contains a number of subdirectories
+	 * called *_emuDB. All files with different names are ignored.
+	 *
+	 * @param {string} project - Project identifier
+	 * @param {boolean} deep - If false, the elements of the resulting
+	 * {@link Database}[] only have their {@link Database#name|name} field
+	 * set. If true, they are filled out completely.
+	 * @returns {Promise<Database[], Error>}
+	 */
+	static projectDatabasesDirectory(project, deep = true) {
 		return Promise.resolve([]);
 	}
 
+	/**
+	 * Traverse the uploads directory of a project and return an array of
+	 * {@link Upload} objects.
+	 *
+	 * The uploads directory usually contains a number of subdirectories
+	 * whose names are a UUIDv4.
+	 *
+	 * @param {string} project - Project identifier
+	 * @param {boolean} deep - If false, the elements of the resulting
+	 * {@link Upload}[] only have their {@link Upload#uuid|uuid} field set. If
+	 * true, they are filled out completely.
+	 * @returns {Promise<Upload[], Error>}
+	 */
 	static projectUploadsDirectory(project, deep = true) {
 		return new Promise((resolve, reject) => {
 			let uploadsPath = FilenameHelper.projectUploadsDirectory(project);
@@ -56,6 +87,9 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 			let files = fs.readdirSync(uploadsPath);
 
 			if (deep) {
+				//
+				// Each upload is read asynchronously.
+				//
 				let promises = [];
 
 				for (let i = 0; i < files.length; ++i) {
@@ -67,6 +101,9 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 					);
 				}
 
+
+				//
+				// Only resolve once all async actions have been completed
 				Promise.all(promises)
 					.then(() => {
 						resolve(result);
@@ -75,6 +112,11 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 						reject(error);
 					});
 			} else {
+				//
+				// Synchronously create an array of {@link Upload} objects that
+				// only have their name field properly set (other fields are
+				// left empty)
+				//
 				for (let i = 0; i < files.length; ++i) {
 					let currentUpload = new Upload();
 					currentUpload.uuid = files[i];
@@ -85,6 +127,17 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 		});
 	}
 
+	/**
+	 * Traverse the downloads directory of a project and return an array of
+	 * {@link Download} objects.
+	 *
+	 * The downloads directory usually contains a number of zip files whose
+	 * names resemble <database>_emuDB.<treeish>.zip. All files with
+	 * different names are ignored.
+	 *
+	 * @param {string} project - Project identifier
+	 * @returns {Promise<Download[], Error>}
+	 */
 	static projectDownloadsDirectory(project) {
 		return new Promise((resolve, reject) => {
 			let downloadsPath = FilenameHelper.projectDownloadsDirectory(project);
@@ -144,6 +197,16 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 		});
 	}
 
+	/**
+	 * Traverse an upload directory and return an {@link Upload} object.
+	 *
+	 * @param {string} project - Project identifier
+	 * @param {string} upload - Upload identifier
+	 * @param {boolean} deep - If false, the resulting {@link Upload} object
+	 * does not have its {@link Upload#sessions|session} field set. If true,
+	 * it is filled out completely.
+	 * @returns {Promise<Upload, Error>}
+	 */
 	static uploadDirectory(project, upload, deep = true) {
 		return new Promise((resolve, reject) => {
 			let uploadDataPath = FilenameHelper.uploadDataDirectory(project, upload);
@@ -217,8 +280,17 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 		});
 	}
 
-	//@todo maybe this and databaseDirectory() should share the same code base
+	/**
+	 * Traverse the database directory of an upload and find the sessions in
+	 * it. Returns their names (without the _ses part) as a string[].
+	 *
+	 * @param {string} project - Project identifier
+	 * @param {string} upload - Upload identifier
+	 * @param {string} database - Database name
+	 * @returns {Promise<string[], Error>}
+	 */
 	static uploadDatabaseDirectory(project, upload, database) {
+		//@todo maybe this and databaseDirectory() should share the same code base
 		return new Promise((resolve, reject) => {
 			let databasePath = FilenameHelper.uploadDatabaseDirectory(project, upload, database);
 
