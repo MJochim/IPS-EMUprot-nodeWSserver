@@ -38,6 +38,7 @@ exports.authenticateViaLDAP = function (username, password) {
 			reject(event);
 		});
 
+		// @todo check ldapClient.bind() timeout!!!
 		// Try to bind
 		ldapClient.bind(bindDN, password, function (error) {
 			if (error) {
