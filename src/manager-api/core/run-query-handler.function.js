@@ -1,6 +1,7 @@
 'use strict';
 
 const EmuError = require('../../core/emu-error.class.js').EmuError;
+const listProjects = require('../query-handlers/list-projects.function.js').listProjects;
 const listTags = require('../query-handlers/list-tags.function.js').listTags;
 const projectInfo = require('../query-handlers/project-info.function.js').projectInfo;
 
@@ -82,15 +83,17 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			);
 			break;
 
+		case 'listProjects':
+			promise = listProjects(
+				userInput.username
+			);
+			break;
+
 		case 'listTags':
 			promise = listTags(
 				userInput.project,
 				userInput.databaseName
 			);
-			break;
-
-		case 'login':
-			promise = Promise.resolve(null);
 			break;
 
 		case 'mergeUpload':

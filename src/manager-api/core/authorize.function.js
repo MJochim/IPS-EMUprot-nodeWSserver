@@ -37,7 +37,6 @@ exports.authorize = function (username, query, project) {
 					case 'downloadDatabase':
 					case 'listCommits':
 					case 'listTags':
-					case 'login':
 					case 'projectInfo':
 						if (level === 'rw' || level === 'ro') {
 							resolve();
