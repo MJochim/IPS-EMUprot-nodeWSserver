@@ -52,7 +52,7 @@ exports.ValidUserInput = class {
 		this.bundleFinishedEditing = false;
 		this.gitCommitID = '';
 		this.password = '';
-		this.bundleListObject = '';
+		this.bundleListObject = '[]';
 	}
 
 	/**
@@ -139,14 +139,18 @@ exports.ValidUserInput = class {
 					break;
 
 				case 'bundleListObject':
+					let value;
 					try {
-						JSON.parse(newUserInput[i]);
+						value = JSON.parse(newUserInput[i]);
 					} catch (e) {
 						if (e instanceof SyntaxError) {
 							throw new UserInputError(i);
 						} else {
 							throw (e);
 						}
+					}
+					if (!Array.isArray(value)) {
+						throw new UserInputError(i);
 					}
 					break;
 
