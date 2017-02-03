@@ -2,7 +2,7 @@
 
 const ldapjs = require('ldapjs');
 
-const AuthenticationError = require ('./authentication-error.class.js').AuthenticationError;
+const AuthenticationError = require ('./errors/authentication-error.class.js').AuthenticationError;
 const config = require ('../config.js').config;
 
 /**

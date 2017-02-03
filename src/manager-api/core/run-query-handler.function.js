@@ -1,6 +1,6 @@
 'use strict';
 
-const EmuError = require('../../core/emu-error.class.js').EmuError;
+const EmuError = require('../../core/errors/emu-error.class.js').EmuError;
 const listProjects = require('../query-handlers/list-projects.function.js').listProjects;
 const listTags = require('../query-handlers/list-tags.function.js').listTags;
 const projectInfo = require('../query-handlers/project-info.function.js').projectInfo;

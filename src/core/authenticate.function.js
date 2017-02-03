@@ -2,7 +2,7 @@
 
 const authenticateViaLDAP = require('./authenticate-via-ldap.function.js').authenticateViaLDAP;
 const authenticateViaSQL = require('./authenticate-via-sql.function.js').authenticateViaSQL;
-const AuthenticationError = require('./authentication-error.class.js').AuthenticationError;
+const AuthenticationError = require('./errors/authentication-error.class.js').AuthenticationError;
 
 /**
  * Authentication: Checks whether the <password> for <username> is correct.

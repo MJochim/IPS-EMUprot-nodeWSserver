@@ -6,7 +6,7 @@ describe('authorize (based on SQLite)', () => {
 	// Dependencies and stubs
 	//
 	const proxyquire = require('proxyquire');
-	const AuthorizationError = require('../../core/authorization-error.class.js').AuthorizationError;
+	const AuthorizationError = require('../../core/errors/authorization-error.class.js').AuthorizationError;
 
 	let configStub = {};
 	configStub.config = {

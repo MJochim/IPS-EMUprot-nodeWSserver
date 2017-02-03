@@ -5,7 +5,7 @@ describe('ValidUserInput', () => {
 	//
 	// Dependencies
 	//
-	const UserInputError = require('../../core/user-input-error.class.js').UserInputError;
+	const UserInputError = require('../../core/errors/user-input-error.class.js').UserInputError;
 	const ValidUserInput = require('./valid-user-input.class.js').ValidUserInput;
 
 

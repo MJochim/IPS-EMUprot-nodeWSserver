@@ -1,6 +1,6 @@
 'use strict';
 
-const UserInputError = require('../../core/user-input-error.class.js').UserInputError;
+const UserInputError = require('../../core/errors/user-input-error.class.js').UserInputError;
 
 /**
  * This class is the place where all dangerous user input gets rejected.

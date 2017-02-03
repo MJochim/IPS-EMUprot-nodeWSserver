@@ -18,7 +18,7 @@ const url = require('url');
 const authenticate = require('../core/authenticate.function.js').authenticate;
 const authorize = require('./core/authorize.function.js').authorize;
 const config = require('../config.js').config;
-const EmuError = require('../core/emu-error.class.js').EmuError;
+const EmuError = require('../core/errors/emu-error.class.js').EmuError;
 const runQueryHandler = require('./core/run-query-handler.function.js').runQueryHandler;
 const ValidUserInput = require("./core/valid-user-input.class.js").ValidUserInput;
 

@@ -3,7 +3,7 @@
 const pg = require('pg');
 const sqlite3 = require('sqlite3');
 
-const AuthorizationError = require('../../core/authorization-error.class.js').AuthorizationError;
+const AuthorizationError = require('../../core/errors/authorization-error.class.js').AuthorizationError;
 const config = require('../../config.js').config;
 
 /**

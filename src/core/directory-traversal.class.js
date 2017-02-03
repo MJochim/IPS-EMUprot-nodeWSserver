@@ -3,13 +3,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const BundleList = require('./bundle-list.class').BundleList;
-const Database = require("./database.class.js").Database;
-const Download = require('./download.class').Download;
+const BundleList = require('./types/bundle-list.class').BundleList;
+const Database = require("./types/database.class.js").Database;
+const Download = require('./types/download.class').Download;
 const FilenameHelper = require('./filename-helper.class').FilenameHelper;
-const ProjectDataset = require("./project-dataset.class.js").ProjectDataset;
-const Session = require("./session.class.js").Session;
-const Upload = require("./upload.class.js").Upload;
+const ProjectDataset = require("./types/project-dataset.class.js").ProjectDataset;
+const Session = require("./types/session.class.js").Session;
+const Upload = require("./types/upload.class.js").Upload;
 
 /**
  * A collection of asynchronous functions that recursively traverse a certain
