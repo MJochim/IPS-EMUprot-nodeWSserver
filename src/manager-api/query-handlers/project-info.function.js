@@ -1,6 +1,7 @@
 'use strict';
 
 const DirectoryTraversal = require('../../core/directory-traversal.class').DirectoryTraversal;
+const lock = require('../../core/lock');
 
 /**
  * Compile a ProjectDataset object containing info about all databases,
@@ -12,16 +13,23 @@ const DirectoryTraversal = require('../../core/directory-traversal.class').Direc
  */
 exports.projectInfo = function (project) {
 	return new Promise((resolve, reject) => {
-		// @todo lock project
-
-		// Find all things in the project directory
-		DirectoryTraversal.projectDirectory(project)
-			.then((projectObject) => {
-				projectObject.name = project;
-				resolve(projectObject);
+		lock.lockProject(project)
+			.then((lockID) => {
+				// Find all things in the project directory
+				DirectoryTraversal.projectDirectory(project)
+					.then((projectObject) => {
+						projectObject.name = project;
+						lock.unlockProject(project, lockID);
+						resolve(projectObject);
+					})
+					.catch((error) => {
+						lock.unlockProject(project, lockID);
+						reject(error);
+					});
 			})
 			.catch((error) => {
 				reject(error);
 			});
+
 	});
 };
