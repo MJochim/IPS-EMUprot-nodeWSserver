@@ -1,25 +1,31 @@
 'use strict';
 
-exports.listTags = function (authToken, databaseName) {
-	/*
-	console.log (query.query, query.project, lock.getLockInfo());
+const nodegit = require('nodegit');
 
-	var locked = lock.lockResource(query.project);
-	console.log ('HTTP client requested lock for resource', query.project, locked);
-	if (locked === false) {
-		return Promise.reject({
-			success: false,
-			data: 'E_RESOURCE_LOCKED',
-			message: ''
-		});
-	}
+const FilenameHelper = require('../../core/filename-helper.class').FilenameHelper;
+const lock = require('../../core/lock');
 
-	also unlock!
-	*/
+exports.listTags = function (project, database) {
+	return new Promise((resolve, reject) => {
+		lock.lockDatabase(project, database)
+			.then((lockID) => {
+				let databasePath = FilenameHelper.databaseDirectory(project, database);
 
-	return new Promise (function (resolve, reject) {
-		//setTimeout(function () { resolve('aer'+Date.now()); }, 5000);
-		resolve(databaseName);
-		reject();
+				nodegit.Repository.open(databasePath)
+					.then((repo) => {
+						return nodegit.Tag.list(repo);
+					})
+					.then((tagList) => {
+						lock.unlockDatabase(project, database, lockID);
+						resolve(tagList);
+					})
+					.catch((error) => {
+						lock.unlockDatabase(project, database, lockID);
+						reject(error);
+					});
+			})
+			.catch((error) => {
+				reject(error);
+			});
 	});
 };
