@@ -1,6 +1,6 @@
 'use strict';
 
-const pg = require('pg');
+//const pg = require('pg');
 const sqlite3 = require('sqlite3');
 
 const config = require('../../config.js').config;
@@ -40,4 +40,4 @@ exports.listProjects = function (username) {
 			}
 		);
 	});
-}
+};

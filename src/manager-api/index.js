@@ -9,18 +9,17 @@
 //
 //////////////////////////////////////////////////
 
-"use strict";
+'use strict';
 
 const formidable = require('formidable');
 const http = require('http');
-const url = require('url');
 
 const authenticate = require('../core/authenticate.function.js').authenticate;
 const authorize = require('./core/authorize.function.js').authorize;
 const config = require('../config.js').config;
 const EmuError = require('../core/errors/emu-error.class.js').EmuError;
 const runQueryHandler = require('./core/run-query-handler.function.js').runQueryHandler;
-const ValidUserInput = require("./core/valid-user-input.class.js").ValidUserInput;
+const ValidUserInput = require('./core/valid-user-input.class.js').ValidUserInput;
 
 function httpConnectionCallback(request, response) {
 	// @todo  handle request.onError and response.onError
@@ -59,7 +58,7 @@ function httpConnectionCallback(request, response) {
 	formidablePromise
 		.then(() => {
 			// Check whether <password> is right for <username>
-			return authenticate(validUserInput.username, validUserInput.password)
+			return authenticate(validUserInput.username, validUserInput.password);
 		})
 		.then(() => {
 			// Check whether <username> is allowed to perform <query> on <project>
@@ -90,10 +89,12 @@ function httpConnectionCallback(request, response) {
 
 				if (error.writeToLogfile) {
 					// @todo properly log this error
+					// eslint-disable-next-line no-console
 					console.log(error.name, error.message);
 				}
 			} else {
 				// @todo properly log this error
+				// eslint-disable-next-line no-console
 				console.log(error.name, error.message);
 
 				response.write(JSON.stringify({
@@ -113,5 +114,6 @@ function httpConnectionCallback(request, response) {
 let server = http.createServer(httpConnectionCallback);
 
 server.listen(config.managerAPI.port, () => {
-	console.log("Server listening on: http://localhost:%s", config.managerAPI.port);
+	// eslint-disable-next-line no-console
+	console.log('Server listening on: http://localhost:%s' + config.managerAPI.port);
 });

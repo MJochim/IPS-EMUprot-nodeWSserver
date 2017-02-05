@@ -18,6 +18,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 
 	switch (userInput.query) {
 		case 'addTag':
+			// eslint-disable-next-line no-undef
 			promise = addTag(
 				userInput.project,
 				userInput.databaseName,
@@ -27,6 +28,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'createArchive':
+			// eslint-disable-next-line no-undef
 			promise = createArchive(
 				userInput.project,
 				userInput.databaseName,
@@ -35,6 +37,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'deleteBundleList':
+			// eslint-disable-next-line no-undef
 			promise = deleteBundleList(
 				userInput.project,
 				userInput.databaseName,
@@ -44,6 +47,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'deleteUpload':
+			// eslint-disable-next-line no-undef
 			promise = deleteUpload(
 				userInput.project,
 				userInput.uploadUUID
@@ -51,6 +55,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'downloadDatabase':
+			// eslint-disable-next-line no-undef
 			promise = downloadDatabase(
 				userInput.project,
 				userInput.databaseName,
@@ -59,6 +64,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'editBundleList':
+			// eslint-disable-next-line no-undef
 			promise = editBundleList(
 				userInput.project,
 				userInput.databaseName,
@@ -70,6 +76,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'fastForward':
+			// eslint-disable-next-line no-undef
 			promise = fastForward(
 				userInput.project,
 				userInput.uploadUUID,
@@ -98,6 +105,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'mergeUpload':
+			// eslint-disable-next-line no-undef
 			promise = mergeUpload(
 				userInput.project,
 				userInput.uploadUUID,
@@ -112,6 +120,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'renameDatabase':
+			// eslint-disable-next-line no-undef
 			promise = renameDatabase(
 				userInput.project,
 				userInput.oldDatabaseName,
@@ -120,6 +129,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'saveBundleList':
+			// eslint-disable-next-line no-undef
 			promise = saveBundleList(
 				userInput.project,
 				userInput.databaseName,
@@ -129,6 +139,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'saveUpload':
+			// eslint-disable-next-line no-undef
 			promise = saveUpload(
 				userInput.project,
 				userInput.uploadUUID,
@@ -137,6 +148,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'setDatabaseConfiguration':
+			// eslint-disable-next-line no-undef
 			promise = setDatabaseConfiguration(
 				userInput.project,
 				userInput.databaseName,
@@ -146,8 +158,10 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'upload':
+			// eslint-disable-next-line no-undef
 			promise = upload(
-				userInput.project
+				userInput.project,
+				userInputFiles
 			);
 			break;
 

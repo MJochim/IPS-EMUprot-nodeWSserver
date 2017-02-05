@@ -138,6 +138,7 @@ exports.ValidUserInput = class {
 				case 'password':
 					break;
 
+				// eslint-disable-next-line no-case-declarations
 				case 'bundleListObject':
 					let value;
 					try {
