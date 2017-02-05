@@ -9,6 +9,9 @@ exports.config = {
 
 	dataDirectory: "emuDBs",
 
+	git: {
+		committerEmail: "emu-server@phonetik.uni-muenchen.de"
+	},
 	ldap: {
 		enabled: true,
 		address: "ldaps://ldap.phonetik.uni-muenchen.de:636",
