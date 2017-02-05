@@ -16,6 +16,7 @@
   "dependencies": {
     "formidable": "^1.1.1",
     "ldapjs": "^1.0.1",
+    "nodegit": "^0.16.0",
     "pg": "^6.1.2",
     "sqlite3": "^3.1.8"
   },
