@@ -20,11 +20,17 @@ const projectInfo = require('../query-handlers/project-info.function.js').projec
  * and authorized before calling this function.
  */
 exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
+	let author;
+	let committer;
 	let promise;
 
 	// Create signatures for git commit
-	let author = nodegit.Signature.now(authentication.username, authentication.email);
-	let committer = nodegit.Signature.now(config.git.committerName, config.git.committerEmail);
+	try {
+		author = nodegit.Signature.now(authentication.username, authentication.email);
+		committer = nodegit.Signature.now(config.git.committerName, config.git.committerEmail);
+	} catch (error) {
+		return Promise.reject(error);
+	}
 
 	if (author === null || committer === null) {
 		return Promise.reject(new Error('Creating commit signatures failed.'));

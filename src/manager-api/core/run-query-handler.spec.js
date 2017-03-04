@@ -37,12 +37,12 @@ describe('runQueryHandler', () => {
 	});
 
 	it('should call the correct query handler and pass the correct parameters', () => {
-		runQueryHandler({query: 'listProjects', username: 'alice'}, []);
+		runQueryHandler({username: 'alice', email: 'alice@alice.com'}, {query: 'listProjects', username: 'alice'}, []);
 		expect(listProjectsStub.listProjects).toHaveBeenCalledWith('alice');
 	});
 
 	it('should reject unknown queries', (done) => {
-		runQueryHandler({query: 'someQuery'}, [])
+		runQueryHandler({username: 'alice', email: 'alice@example.com'}, {query: 'someQuery'}, [])
 			.then(() => {
 				done.fail('Unknown query was accepted.');
 			})
