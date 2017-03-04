@@ -66,8 +66,12 @@ function httpConnectionCallback(request, response) {
 			return authorize(validUserInput.username, validUserInput.query, validUserInput.project);
 		})
 		.then(() => {
+			let authInfo = {
+				username: validUserInput.username,
+				email: 'no-reply@example.com'
+			};
 			// Perform the actual stuff
-			return runQueryHandler(validUserInput, userInputFiles);
+			return runQueryHandler(authInfo, validUserInput, userInputFiles);
 		})
 		.then((queryResult) => {
 			response.write(JSON.stringify({
@@ -81,8 +85,10 @@ function httpConnectionCallback(request, response) {
 				if (error.visibleToClient) {
 					response.write(JSON.stringify({
 						success: false,
-						errorCode: error.message,
-						errorInfo: error.additionalInfo
+						error: {
+							code: error.message,
+							info: error.additionalInfo
+						}
 					}));
 					response.end();
 				}
@@ -99,7 +105,9 @@ function httpConnectionCallback(request, response) {
 
 				response.write(JSON.stringify({
 					success: false,
-					errorCode: 'E_INTERNAL_SERVER_ERROR'
+					error: {
+						code: 'E_INTERNAL_SERVER_ERROR'
+					}
 				}));
 				response.end();
 			}
