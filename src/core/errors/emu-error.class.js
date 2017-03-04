@@ -7,6 +7,7 @@ exports.EmuError = class extends Error {
 		this.message = errorType;
 
 		this.additionalInfo = '';
+		this.internalInfo = '';
 		this.visibleToClient = visibleToClient;
 		this.writeToLogfile = writeToLogfile;
 	}
