@@ -1,6 +1,7 @@
 'use strict';
 
 const addTag = require('../query-handlers/add-tag.function').addTag;
+const deleteBundleList  = require('../query-handlers/delete-bundle-list.function').deleteBundleList;
 const EmuError = require('../../core/errors/emu-error.class.js').EmuError;
 const listCommits = require('../query-handlers/list-commits.function.js').listCommits;
 const listProjects = require('../query-handlers/list-projects.function.js').listProjects;
@@ -38,7 +39,6 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'deleteBundleList':
-			// eslint-disable-next-line no-undef
 			promise = deleteBundleList(
 				userInput.project,
 				userInput.databaseName,
