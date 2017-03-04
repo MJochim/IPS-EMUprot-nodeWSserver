@@ -2,6 +2,7 @@
 
 const addTag = require('../query-handlers/add-tag.function').addTag;
 const deleteBundleList  = require('../query-handlers/delete-bundle-list.function').deleteBundleList;
+const editBundleList = require('../query-handlers/edit-bundle-list.function.js').editBundleList;
 const EmuError = require('../../core/errors/emu-error.class.js').EmuError;
 const listCommits = require('../query-handlers/list-commits.function.js').listCommits;
 const listProjects = require('../query-handlers/list-projects.function.js').listProjects;
@@ -65,7 +66,6 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 			break;
 
 		case 'editBundleList':
-			// eslint-disable-next-line no-undef
 			promise = editBundleList(
 				userInput.project,
 				userInput.databaseName,
