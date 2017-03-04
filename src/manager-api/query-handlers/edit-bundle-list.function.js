@@ -17,7 +17,9 @@ exports.editBundleList = function (project,
                                    oldArchiveLabel,
                                    oldBundleListName,
                                    newArchiveLabel,
-                                   newBundleListName) {
+                                   newBundleListName,
+                                   gitAuthor,
+                                   gitCommitter) {
 	return new Promise((resolve, reject) => {
 		let paths = {
 			db: FilenameHelper.databaseDirectory(project, databaseName),
@@ -83,7 +85,7 @@ exports.editBundleList = function (project,
 				return index.addByPath(paths.blNewRel);
 			})
 			.then(() => {
-				return gitCommit(repository, index, 'name', 'email', 'message');
+				return gitCommit(repository, index, gitAuthor, gitCommitter, 'Changed editor and/or archive label of bundle list');
 			})
 			.then(() => {
 				lock.unlockDatabase(project, databaseName, lockID);

@@ -9,25 +9,13 @@ const GitError = require("../errors/git-error.class.js").GitError;
  *
  * @param repository
  * @param index
- * @param name
- * @param email
- * @param message
- * @param time
- * @param offset
+ * @param author
+ * @param committer
  * @returns {Promise}
  */
-exports.gitCommit = function (repository, index, name, email, message, time, offset) {
+exports.gitCommit = function (repository, index, author, committer, message) {
 	return new Promise((resolve, reject) => {
-		let now = new Date();
 		let oid;
-
-		if (time === undefined) {
-			time = Math.floor(now.getTime() / 1000);
-		}
-
-		if (offset === undefined) {
-			offset = -1 * now.getTimezoneOffset();
-		}
 
 		index.write()
 			.then(() => {
@@ -41,9 +29,6 @@ exports.gitCommit = function (repository, index, name, email, message, time, off
 				return repository.getCommit(head);
 			})
 			.then((parent) => {
-				let author = nodegit.Signature.create(name, email, time, offset);
-				let committer = nodegit.Signature.create(name, email, time, offset);
-
 				return repository.createCommit('HEAD', author, committer, message, oid, [parent]);
 			})
 			.then((commitID) => {

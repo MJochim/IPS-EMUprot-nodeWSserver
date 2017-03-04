@@ -1,6 +1,9 @@
 'use strict';
 
+const nodegit = require('nodegit');
+
 const addTag = require('../query-handlers/add-tag.function').addTag;
+const config = require('../../config').config;
 const deleteBundleList  = require('../query-handlers/delete-bundle-list.function').deleteBundleList;
 const editBundleList = require('../query-handlers/edit-bundle-list.function.js').editBundleList;
 const EmuError = require('../../core/errors/emu-error.class.js').EmuError;
@@ -16,8 +19,16 @@ const projectInfo = require('../query-handlers/project-info.function.js').projec
  * IMPORTANT: userInput must be validated, and the user must be authenticated
  * and authorized before calling this function.
  */
-exports.runQueryHandler = function (userInput, userInputFiles) {
+exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 	let promise;
+
+	// Create signatures for git commit
+	let author = nodegit.Signature.now(authentication.username, authentication.email);
+	let committer = nodegit.Signature.now(config.git.committerName, config.git.committerEmail);
+
+	if (author === null || committer === null) {
+		return Promise.reject(new Error('Creating commit signatures failed.'));
+	}
 
 	switch (userInput.query) {
 		case 'addTag':
@@ -26,7 +37,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 				userInput.databaseName,
 				userInput.gitCommitID,
 				userInput.gitTagLabel,
-				userInput.username
+				author
 			);
 			break;
 
@@ -44,7 +55,9 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 				userInput.project,
 				userInput.databaseName,
 				userInput.bundleListName,
-				userInput.archiveLabel
+				userInput.archiveLabel,
+				author,
+				committer
 			);
 			break;
 
@@ -72,7 +85,9 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 				userInput.oldArchiveLabel,
 				userInput.oldBundleListName,
 				userInput.newArchiveLabel,
-				userInput.newBundleListName
+				userInput.newBundleListName,
+				author,
+				committer
 			);
 			break;
 
@@ -94,7 +109,7 @@ exports.runQueryHandler = function (userInput, userInputFiles) {
 
 		case 'listProjects':
 			promise = listProjects(
-				userInput.username
+				authentication.username
 			);
 			break;
 

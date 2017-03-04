@@ -2,11 +2,10 @@
 
 const nodegit = require('nodegit');
 
-const config = require('../../config').config;
 const FilenameHelper = require('../../core/filename-helper.class').FilenameHelper;
 const lock = require('../../core/lock');
 
-exports.addTag = function (project, databaseName, gitCommitID, gitTagLabel, username) {
+exports.addTag = function (project, databaseName, gitCommitID, gitTagLabel, username, gitAuthor) {
 	return new Promise((resolve, reject) => {
 		lock.lockDatabase(project, databaseName)
 			.then((lockID) => {
@@ -16,8 +15,7 @@ exports.addTag = function (project, databaseName, gitCommitID, gitTagLabel, user
 					.then((repo) => {
 						return nodegit.Commit.lookup(repo, gitCommitID)
 							.then((commit) => {
-								let signature = nodegit.Signature.now(username, config.git.committerEmail);
-								return nodegit.Tag.create(repo, gitTagLabel, commit, signature, 'Created by emuDB Manager', 0);
+								return nodegit.Tag.create(repo, gitTagLabel, commit, gitAuthor, 'Created by emuDB Manager', 0);
 							});
 					})
 					.then(() => {

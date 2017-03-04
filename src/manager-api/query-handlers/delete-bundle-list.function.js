@@ -10,7 +10,7 @@ const lock = require('../../core/lock');
 const NoBundleListError = require('../../core/errors/no-bundle-list-error.class').NoBundleListError;
 
 
-exports.deleteBundleList = function (project, databaseName, bundleListName, archiveLabel) {
+exports.deleteBundleList = function (project, databaseName, bundleListName, archiveLabel, gitAuthor, gitCommitter) {
 	return new Promise((resolve, reject) => {
 		let bundleListPath = FilenameHelper.databaseBundleListFile(project, databaseName, archiveLabel, bundleListName);
 		let bundleListPathRelative = FilenameHelper.databaseBundleListFile(project, databaseName, archiveLabel, bundleListName, false);
@@ -41,7 +41,7 @@ exports.deleteBundleList = function (project, databaseName, bundleListName, arch
 				return index.removeByPath(bundleListPathRelative);
 			})
 			.then(() => {
-				return gitCommit(repository, index, 'name', 'email', 'message');
+				return gitCommit(repository, index, gitAuthor, gitCommitter, 'Deleted bundle list');
 			})
 			// eslint-disable-next-line no-unused-vars
 			.then((commitID) => {
