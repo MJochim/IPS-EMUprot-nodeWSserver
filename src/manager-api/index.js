@@ -72,9 +72,8 @@ function httpConnectionCallback(request, response) {
 		.then((queryResult) => {
 			response.write(JSON.stringify({
 				success: true,
-				data: 'E_SUCCESS',
-				message: queryResult
-			}));
+				data: queryResult
+			}, null, '\t' ));
 			response.end();
 		})
 		.catch((error) => {
@@ -82,8 +81,8 @@ function httpConnectionCallback(request, response) {
 				if (error.visibleToClient) {
 					response.write(JSON.stringify({
 						success: false,
-						data: error.message,
-						message: ''
+						errorCode: error.message,
+						errorInfo: error.additionalInfo
 					}));
 					response.end();
 				}
@@ -91,17 +90,16 @@ function httpConnectionCallback(request, response) {
 				if (error.writeToLogfile) {
 					// @todo properly log this error
 					// eslint-disable-next-line no-console
-					console.log(error.name, error.message);
+					console.log(error.name, error.message, error.internalInfo, error.additionalInfo);
 				}
 			} else {
 				// @todo properly log this error
 				// eslint-disable-next-line no-console
-				console.log(error.name, error.message);
+				console.log(error.stack);
 
 				response.write(JSON.stringify({
 					success: false,
-					data: 'E_INTERNAL_SERVER_ERROR',
-					message: ''
+					errorCode: 'E_INTERNAL_SERVER_ERROR'
 				}));
 				response.end();
 			}
