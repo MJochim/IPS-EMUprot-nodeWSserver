@@ -22,6 +22,7 @@ const runQueryHandler = require('./core/run-query-handler.function.js').runQuery
 const ValidUserInput = require('./core/valid-user-input.class.js').ValidUserInput;
 
 function httpConnectionCallback(request, response) {
+	response.setHeader('Access-Control-Allow-Origin', '*');
 	// @todo  handle request.onError and response.onError
 
 	//
