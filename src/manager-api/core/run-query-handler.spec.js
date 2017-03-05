@@ -30,19 +30,19 @@ describe('runQueryHandler', () => {
 	//
 
 	it('should return a promise', () => {
-		let promise = runQueryHandler({query: 'listProjects'}, []);
+		let promise = runQueryHandler({}, 'listProjects', {}, []);
 		expect(promise instanceof Promise).toBe(true);
 		promise = runQueryHandler({}, []);
 		expect(promise instanceof Promise).toBe(true);
 	});
 
 	it('should call the correct query handler and pass the correct parameters', () => {
-		runQueryHandler({username: 'alice', email: 'alice@alice.com'}, {query: 'listProjects', username: 'alice'}, []);
+		runQueryHandler({username: 'alice', email: 'alice@alice.com'}, 'listProjects', {}, []);
 		expect(listProjectsStub.listProjects).toHaveBeenCalledWith('alice');
 	});
 
 	it('should reject unknown queries', (done) => {
-		runQueryHandler({username: 'alice', email: 'alice@example.com'}, {query: 'someQuery'}, [])
+		runQueryHandler({username: 'alice', email: 'alice@example.com'}, 'someQuery', {}, [])
 			.then(() => {
 				done.fail('Unknown query was accepted.');
 			})

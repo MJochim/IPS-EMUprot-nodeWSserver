@@ -15,13 +15,13 @@ const renameDatabase = require('../query-handlers/rename-database.function.js').
 const setDatabaseConfiguration = require('../query-handlers/set-database-configuration.function.js').setDatabaseConfiguration;
 
 /**
- * This function only looks at <userInput.query> (a client-supplied string) and
+ * This function only looks at the query (a client-supplied string) and
  * calls the appropriate function.
  *
  * IMPORTANT: userInput must be validated, and the user must be authenticated
  * and authorized before calling this function.
  */
-exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
+exports.runQueryHandler = function (authentication, query, parameters, userInputFiles) {
 	let author;
 	let committer;
 	let promise;
@@ -38,13 +38,13 @@ exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 		return Promise.reject(new Error('Creating commit signatures failed.'));
 	}
 
-	switch (userInput.query) {
+	switch (query) {
 		case 'addTag':
 			promise = addTag(
-				userInput.project,
-				userInput.databaseName,
-				userInput.gitCommitID,
-				userInput.gitTagLabel,
+				parameters.project,
+				parameters.databaseName,
+				parameters.gitCommitID,
+				parameters.gitTagLabel,
 				author
 			);
 			break;
@@ -52,18 +52,18 @@ exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 		case 'createArchive':
 			// eslint-disable-next-line no-undef
 			promise = createArchive(
-				userInput.project,
-				userInput.databaseName,
-				userInput.gitTreeish
+				parameters.project,
+				parameters.databaseName,
+				parameters.gitTreeish
 			);
 			break;
 
 		case 'deleteBundleList':
 			promise = deleteBundleList(
-				userInput.project,
-				userInput.databaseName,
-				userInput.bundleListName,
-				userInput.archiveLabel,
+				parameters.project,
+				parameters.databaseName,
+				parameters.bundleListName,
+				parameters.archiveLabel,
 				author,
 				committer
 			);
@@ -72,28 +72,28 @@ exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 		case 'deleteUpload':
 			// eslint-disable-next-line no-undef
 			promise = deleteUpload(
-				userInput.project,
-				userInput.uploadUUID
+				parameters.project,
+				parameters.uploadUUID
 			);
 			break;
 
 		case 'downloadDatabase':
 			// eslint-disable-next-line no-undef
 			promise = downloadDatabase(
-				userInput.project,
-				userInput.databaseName,
-				userInput.gitTreeish
+				parameters.project,
+				parameters.databaseName,
+				parameters.gitTreeish
 			);
 			break;
 
 		case 'editBundleList':
 			promise = editBundleList(
-				userInput.project,
-				userInput.databaseName,
-				userInput.oldArchiveLabel,
-				userInput.oldBundleListName,
-				userInput.newArchiveLabel,
-				userInput.newBundleListName,
+				parameters.project,
+				parameters.databaseName,
+				parameters.oldArchiveLabel,
+				parameters.oldBundleListName,
+				parameters.newArchiveLabel,
+				parameters.newBundleListName,
 				author,
 				committer
 			);
@@ -102,16 +102,16 @@ exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 		case 'fastForward':
 			// eslint-disable-next-line no-undef
 			promise = fastForward(
-				userInput.project,
-				userInput.uploadUUID,
-				userInput.databaseName
+				parameters.project,
+				parameters.uploadUUID,
+				parameters.databaseName
 			);
 			break;
 
 		case 'listCommits':
 			promise = listCommits(
-				userInput.project,
-				userInput.databaseName
+				parameters.project,
+				parameters.databaseName
 			);
 			break;
 
@@ -123,31 +123,31 @@ exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 
 		case 'listTags':
 			promise = listTags(
-				userInput.project,
-				userInput.databaseName
+				parameters.project,
+				parameters.databaseName
 			);
 			break;
 
 		case 'mergeUpload':
 			// eslint-disable-next-line no-undef
 			promise = mergeUpload(
-				userInput.project,
-				userInput.uploadUUID,
-				userInput.databaseName
+				parameters.project,
+				parameters.uploadUUID,
+				parameters.databaseName
 			);
 			break;
 
 		case 'projectInfo':
 			promise = projectInfo(
-				userInput.project
+				parameters.project
 			);
 			break;
 
 		case 'renameDatabase':
 			promise = renameDatabase(
-				userInput.project,
-				userInput.oldDatabaseName,
-				userInput.newDatabaseName,
+				parameters.project,
+				parameters.oldDatabaseName,
+				parameters.newDatabaseName,
 				author,
 				committer
 			);
@@ -156,28 +156,28 @@ exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 		case 'saveBundleList':
 			// eslint-disable-next-line no-undef
 			promise = saveBundleList(
-				userInput.project,
-				userInput.databaseName,
-				userInput.bundleListName,
-				userInput.bundleListObject
+				parameters.project,
+				parameters.databaseName,
+				parameters.bundleListName,
+				parameters.bundleListObject
 			);
 			break;
 
 		case 'saveUpload':
 			// eslint-disable-next-line no-undef
 			promise = saveUpload(
-				userInput.project,
-				userInput.uploadUUID,
-				userInput.databaseName
+				parameters.project,
+				parameters.uploadUUID,
+				parameters.databaseName
 			);
 			break;
 
 		case 'setDatabaseConfiguration':
 			promise = setDatabaseConfiguration(
-				userInput.project,
-				userInput.databaseName,
-				userInput.bundleComments,
-				userInput.bundleFinishedEditing,
+				parameters.project,
+				parameters.databaseName,
+				parameters.bundleComments,
+				parameters.bundleFinishedEditing,
 				author,
 				committer
 			);
@@ -186,7 +186,7 @@ exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 		case 'upload':
 			// eslint-disable-next-line no-undef
 			promise = upload(
-				userInput.project,
+				parameters.project,
 				userInputFiles
 			);
 			break;

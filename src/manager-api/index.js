@@ -21,18 +21,16 @@ const EmuError = require('../core/errors/emu-error.class.js').EmuError;
 const identify = require('../core/identify.function.js').identify;
 const runQueryHandler = require('./core/run-query-handler.function.js').runQueryHandler;
 const User = require('../core/types/user.class.js').User;
-const ValidUserInput = require('./core/valid-user-input.class.js').ValidUserInput;
+const validateUserInput = require('./core/validate-user-input.function.js').validateUserInput;
 
 function httpConnectionCallback(request, response) {
 	response.setHeader('Access-Control-Allow-Origin', '*');
 	// @todo  handle request.onError and response.onError
 
-	//
-	// This object will later hold the real user input
-	//
-	let validUserInput = new ValidUserInput();
-
-	let userInputFiles = [];
+	let userInputAuthentication;
+	let userInputFiles;
+	let userInputParameters;
+	let userInputQuery;
 
 	let authenticatedUser = new User();
 
@@ -49,9 +47,8 @@ function httpConnectionCallback(request, response) {
 				return;
 			}
 
-			// Validate user input
 			try {
-				validUserInput.update(fields);
+				userInputParameters = fields;
 				userInputFiles = files;
 				resolve();
 			} catch (error) {
@@ -62,22 +59,31 @@ function httpConnectionCallback(request, response) {
 
 	formidablePromise
 		.then(() => {
-			if (validUserInput.authToken !== '') {
+			//////////////////////
+			// Validate user input
+			let result = validateUserInput(userInputParameters);
+			userInputParameters = result.parameters;
+			userInputAuthentication = result.authentication;
+			userInputQuery = result.query;
+
+			////////////////////
+			// Authenticate user
+			if (userInputAuthentication.authToken !== undefined) {
 				// Get information of the user who is identified by <authToken>
-				return identify(validUserInput.authToken);
+				return identify(userInputAuthentication.authToken);
 			} else {
 				// Check whether <password> is right for <username>
-				return authenticate(validUserInput.username, validUserInput.password);
+				return authenticate(userInputAuthentication.username, userInputAuthentication.password);
 			}
 		})
 		.then((user) => {
 			authenticatedUser = user;
 			// Check whether <username> is allowed to perform <query> on <project>
-			return authorize(authenticatedUser.username, validUserInput.query, validUserInput.project);
+			return authorize(authenticatedUser.username, userInputQuery, userInputParameters.project);
 		})
 		.then(() => {
 			// Perform the actual stuff
-			return runQueryHandler(authenticatedUser, validUserInput, userInputFiles);
+			return runQueryHandler(authenticatedUser, userInputQuery, userInputParameters, userInputFiles);
 		})
 		.then((queryResult) => {
 			response.write(JSON.stringify({

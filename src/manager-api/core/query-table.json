@@ -1,0 +1,292 @@
+{
+	"regexForQuery": "plainCharacters",
+	"authenticationParameters": [
+		{
+			"name": "username",
+			"type": "plainCharactersAndDot"
+		},
+		{
+			"name": "password",
+			"type": "plainCharacters"
+		},
+		{
+			"name": "authToken",
+			"type": "hexString"
+		}
+	],
+	"queries": {
+		"addTag": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "gitCommitID",
+					"type": "hexString"
+				},
+				{
+					"name": "gitTagLabel",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"createArchive": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "gitTreeish",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"deleteBundleList": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "bundleListName",
+					"type": "plainCharactersAndDot"
+				},
+				{
+					"name": "archiveLabel",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"deleteUpload": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "uploadUUID",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"downloadDatabase": {
+			"requiredPermission": "read",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "gitTreeish",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"editBundleList": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "oldArchiveLabel",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "oldBundleListName",
+					"type": "plainCharactersAndDot"
+				},
+				{
+					"name": "newArchiveLabel",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "newBundleListName",
+					"type": "plainCharactersAndDot"
+				}
+			]
+		},
+		"fastForward": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "uploadUUID",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"listCommits": {
+			"requiredPermission": "read",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"listProjects": {
+			"requiredPermission": null,
+			"parameters": [
+			]
+		},
+		"listTags": {
+			"requiredPermission": "read",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"mergeUpload": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "uploadUUID",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"projectInfo": {
+			"requiredPermission": "read",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"renameDatabase": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "oldDatabaseName",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "newDatabaseName",
+					"type": "plainCharacters"
+				}
+			]
+		},
+		"saveBundleList": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "bundleListName",
+					"type": "plainCharactersAndDot"
+				},
+				{
+					"name": "bundleListObject",
+					"type": "JSON"
+				}
+			]
+		},
+		"setDatabaseConfiguration": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "bundleComments",
+					"type": "BOOL"
+				},
+				{
+					"name": "bundleFinishedEditing",
+					"type": "BOOL"
+				}
+			]
+		},
+		"upload": {
+			"requiredPermission": "write",
+			"parameters": [
+				{
+					"name": "project",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "uploadUUID",
+					"type": "plainCharacters"
+				},
+				{
+					"name": "databaseName",
+					"type": "plainCharacters"
+				}
+			]
+		}
+	},
+	"regex": {
+		"plainCharacters": "^[a-zA-Z0-9\\-_]+$",
+		"plainCharactersAndDot": "^[a-zA-Z0-9\\-_\\.]+$",
+		"hexString": "^[a-f0-9]+$"
+	}
+}
