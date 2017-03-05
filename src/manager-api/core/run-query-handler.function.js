@@ -12,6 +12,7 @@ const listProjects = require('../query-handlers/list-projects.function.js').list
 const listTags = require('../query-handlers/list-tags.function.js').listTags;
 const projectInfo = require('../query-handlers/project-info.function.js').projectInfo;
 const renameDatabase = require('../query-handlers/rename-database.function.js').renameDatabase;
+const setDatabaseConfiguration = require('../query-handlers/set-database-configuration.function.js').setDatabaseConfiguration;
 
 /**
  * This function only looks at <userInput.query> (a client-supplied string) and
@@ -172,12 +173,13 @@ exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 			break;
 
 		case 'setDatabaseConfiguration':
-			// eslint-disable-next-line no-undef
 			promise = setDatabaseConfiguration(
 				userInput.project,
 				userInput.databaseName,
 				userInput.bundleComments,
-				userInput.bundleFinishedEditing
+				userInput.bundleFinishedEditing,
+				author,
+				committer
 			);
 			break;
 
