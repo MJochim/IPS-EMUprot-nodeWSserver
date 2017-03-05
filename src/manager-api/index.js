@@ -18,6 +18,7 @@ const authenticate = require('../core/authenticate.function.js').authenticate;
 const authorize = require('./core/authorize.function.js').authorize;
 const config = require('../config.js').config;
 const EmuError = require('../core/errors/emu-error.class.js').EmuError;
+const identify = require('../core/identify.function.js').identify;
 const runQueryHandler = require('./core/run-query-handler.function.js').runQueryHandler;
 const User = require('../core/types/user.class.js').User;
 const ValidUserInput = require('./core/valid-user-input.class.js').ValidUserInput;
@@ -61,8 +62,13 @@ function httpConnectionCallback(request, response) {
 
 	formidablePromise
 		.then(() => {
-			// Check whether <password> is right for <username>
-			return authenticate(validUserInput.username, validUserInput.password);
+			if (validUserInput.authToken !== '') {
+				// Get information of the user who is identified by <authToken>
+				return identify(validUserInput.authToken);
+			} else {
+				// Check whether <password> is right for <username>
+				return authenticate(validUserInput.username, validUserInput.password);
+			}
 		})
 		.then((user) => {
 			authenticatedUser = user;

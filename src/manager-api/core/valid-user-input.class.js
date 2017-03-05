@@ -27,7 +27,7 @@ exports.ValidUserInput = class {
 		// @todo Check whether a-zA-Z is locale-specific on the server
 
 		//
-		// Set all fields to empty string
+		// Set all fields to default values
 		//
 		this.project = '';
 		this.query = '';
@@ -44,6 +44,7 @@ exports.ValidUserInput = class {
 		this.gitTreeish = '';
 		this.uploadUUID = '';
 
+		this.authToken = '';
 		this.bundleListName = '';
 		this.newBundleListName = '';
 		this.oldBundleListName = '';
@@ -103,6 +104,7 @@ exports.ValidUserInput = class {
 				case 'newArchiveLabel':
 				case 'oldArchiveLabel':
 				//
+				case 'authToken':
 				case 'gitTagLabel':
 				case 'gitTreeish':
 				case 'uploadUUID':

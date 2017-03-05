@@ -83,6 +83,7 @@ describe('ValidUserInput', () => {
 	it ('should provide default values', () => {
 		let input = new ValidUserInput();
 		expect(input.archiveLabel).not.toBeUndefined();
+		expect(input.authToken).not.toBeUndefined();
 		expect(input.bundleComments).not.toBeUndefined();
 		expect(input.bundleFinishedEditing).not.toBeUndefined();
 		expect(input.bundleListName).not.toBeUndefined();
