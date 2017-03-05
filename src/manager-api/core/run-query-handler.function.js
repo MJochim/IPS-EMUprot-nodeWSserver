@@ -11,6 +11,7 @@ const listCommits = require('../query-handlers/list-commits.function.js').listCo
 const listProjects = require('../query-handlers/list-projects.function.js').listProjects;
 const listTags = require('../query-handlers/list-tags.function.js').listTags;
 const projectInfo = require('../query-handlers/project-info.function.js').projectInfo;
+const renameDatabase = require('../query-handlers/rename-database.function.js').renameDatabase;
 
 /**
  * This function only looks at <userInput.query> (a client-supplied string) and
@@ -142,11 +143,12 @@ exports.runQueryHandler = function (authentication, userInput, userInputFiles) {
 			break;
 
 		case 'renameDatabase':
-			// eslint-disable-next-line no-undef
 			promise = renameDatabase(
 				userInput.project,
 				userInput.oldDatabaseName,
-				userInput.newDatabaseName
+				userInput.newDatabaseName,
+				author,
+				committer
 			);
 			break;
 
