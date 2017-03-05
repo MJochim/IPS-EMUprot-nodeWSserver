@@ -46,7 +46,7 @@ exports.renameDatabase = function (project, oldDatabaseName, newDatabaseName, gi
 				let json = fs.readFileSync(paths.configOld);
 				configObject = JSON.parse(json);
 			} catch (error) {
-				if (error.code === 'ENOENT') {
+				if (error instanceof SyntaxError || error.code === 'ENOENT') {
 					throw new InvalidDBConfigError(project, oldDatabaseName);
 				} else {
 					throw error;

@@ -309,8 +309,11 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 				.then(() => {
 					// Sessions have now been incorporated into result
 
-					//@todo load DBconfig.json
-					return Promise.resolve({});
+					// Load _DBconfig.json
+					let configPath = FilenameHelper.databaseConfigFile(project, database);
+					let json = fs.readFileSync(configPath);
+
+					return JSON.parse(json);
 				})
 				.then((configuration) => {
 					result.dbConfig = configuration;
