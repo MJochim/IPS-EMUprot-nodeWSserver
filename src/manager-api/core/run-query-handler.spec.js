@@ -5,10 +5,12 @@ describe('runQueryHandler', () => {
 	//
 	// Dependencies and stubs
 	//
+	const config = require('../../config').config;
+	const nodegit = require('nodegit');
 	const proxyquire = require('proxyquire');
 
-	let listProjectsStub = {};
-	listProjectsStub.listProjects = function () {
+	let listTagsStub = {};
+	listTagsStub.listTags = function () {
 		return Promise.resolve();
 	};
 
@@ -20,8 +22,8 @@ describe('runQueryHandler', () => {
 	//
 
 	beforeEach(() => {
-		spyOn(listProjectsStub, 'listProjects').and.callThrough();
-		runQueryHandler = proxyquire('./run-query-handler.function.js', {'../query-handlers/list-projects.function.js': listProjectsStub}).runQueryHandler;
+		spyOn(listTagsStub, 'listTags').and.callThrough();
+		runQueryHandler = proxyquire('./run-query-handler.function.js', {'../query-handlers/list-tags.function.js': listTagsStub}).runQueryHandler;
 	});
 
 
@@ -30,15 +32,34 @@ describe('runQueryHandler', () => {
 	//
 
 	it('should return a promise', () => {
-		let promise = runQueryHandler({}, 'listProjects', {}, []);
+		let promise = runQueryHandler({}, 'listTags', {}, []);
 		expect(promise instanceof Promise).toBe(true);
 		promise = runQueryHandler({}, []);
 		expect(promise instanceof Promise).toBe(true);
 	});
 
 	it('should call the correct query handler and pass the correct parameters', () => {
-		runQueryHandler({username: 'alice', email: 'alice@alice.com'}, 'listProjects', {}, []);
-		expect(listProjectsStub.listProjects).toHaveBeenCalledWith('alice');
+		let authenticatedUser = {
+			username: 'alice',
+			email: 'alice@example.com'
+		};
+		let author = nodegit.Signature.now(authenticatedUser.username, authenticatedUser.email);
+		let committer = nodegit.Signature.now(config.git.committerName, config.git.committerEmail);
+
+		runQueryHandler(
+			authenticatedUser,
+			'listTags',
+			{project: 'sample-project', databaseName: 'myDB'},
+			[]
+		);
+		expect(listTagsStub.listTags).toHaveBeenCalledWith(
+			authenticatedUser,
+			author,
+			committer,
+			[],
+			'sample-project',
+			'myDB'
+		);
 	});
 
 	it('should reject unknown queries', (done) => {
