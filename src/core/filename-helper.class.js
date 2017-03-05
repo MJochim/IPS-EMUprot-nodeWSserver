@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const path = require('path');
 
@@ -83,7 +83,7 @@ exports.FilenameHelper = class FilenameHelper {
 		return path.join(
 			FilenameHelper.databaseArchiveLabelDirectory(project, database, archiveLabel, absolute),
 			bundleList + '_bundleList.json'
-		)
+		);
 	}
 
 	static databaseSessionDirectory(project, database, session, absolute = true) {
@@ -125,6 +125,6 @@ exports.FilenameHelper = class FilenameHelper {
 		return path.join(
 			FilenameHelper.uploadDataDirectory(project, upload, absolute),
 			database + '_emuDB'
-		)
+		);
 	}
 };

@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 exports.EmuError = class extends Error {
 	constructor(errorType, visibleToClient = false, writeToLogfile = true) {

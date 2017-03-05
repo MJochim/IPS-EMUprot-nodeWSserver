@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const pg = require('pg');
 const sqlite3 = require('sqlite3');
@@ -25,7 +25,7 @@ exports.authenticateViaSQL = function (username, password) {
 	} else {
 		return Promise.reject(new AuthenticationError());
 	}
-}
+};
 
 function authenticateViaPgSQL (username, password) {
 	return new Promise ((resolve, reject) => {
@@ -68,7 +68,7 @@ function authenticateViaPgSQL (username, password) {
 					}
 				}
 			);
-  		});
+		});
 	});
 }
 
@@ -83,26 +83,30 @@ function authenticateViaSQLite (username, password) {
 					return;
 				}
 
-				db.all("SELECT * FROM users WHERE username=?", {1: username}, (error, rows) => {
-					if (error !== null) {
-						reject(error);
-						return;
-					}
-					
-					if (rows.length !== 1) {
-						reject(new AuthenticationError());
-					} else {
-						if (checkPassword(password, rows[0]['password'])) {
-							resolve(new User(username, rows[0]['email']));
+				db.all(
+					'SELECT * FROM users WHERE username=?',
+					{1: username},
+					(error, rows) => {
+						if (error !== null) {
+							reject(error);
+							return;
+						}
+
+						if (rows.length !== 1) {
+							reject(new AuthenticationError());
 						} else {
-							reject (new AuthenticationError());
+							if (checkPassword(password, rows[0]['password'])) {
+								resolve(new User(username, rows[0]['email']));
+							} else {
+								reject (new AuthenticationError());
+							}
 						}
 					}
-				});
+				);
 			}
 		);
 	});
-};
+}
 
 function checkPassword (givenPassword, databasePassword) {
 	return (givenPassword == databasePassword);

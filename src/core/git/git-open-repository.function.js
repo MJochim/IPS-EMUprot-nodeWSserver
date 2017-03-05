@@ -2,7 +2,7 @@
 
 const nodegit = require('nodegit');
 
-const GitError = require("../errors/git-error.class.js").GitError;
+const GitError = require('../errors/git-error.class.js').GitError;
 
 exports.gitOpenRepository = function (path) {
 	return new Promise((resolve, reject) => {

@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const LockError = require('./errors/lock-error.class').LockError;
 
@@ -58,7 +58,7 @@ exports.unlockDatabase = function (project, database, lockID) {
 			reject();
 		}
 	});
-}
+};
 
 exports.lockProject = function (project, retries = 2, retryInterval = 1000) {
 	if (typeof project !== 'string') {
@@ -101,7 +101,7 @@ exports.unlockProject = function (project, lockID) {
 			reject();
 		}
 	});
-}
+};
 
 exports.getLockInfo = function () {
 	// @todo this should really make a deep copy

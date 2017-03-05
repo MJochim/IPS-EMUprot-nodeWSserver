@@ -2,7 +2,7 @@
 
 const nodegit = require('nodegit');
 
-const GitError = require("../errors/git-error.class.js").GitError;
+const GitError = require('../errors/git-error.class.js').GitError;
 
 /**
  * Create a commit for a changed index and point HEAD to the new commit.

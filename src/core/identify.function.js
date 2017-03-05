@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const pg = require('pg');
 const sqlite3 = require('sqlite3');
@@ -63,7 +63,7 @@ function identifyViaPgSQL (authToken) {
 					resolve(new User(result.rows[0].userID, result.rows[0].email));
 				}
 			);
-  		});
+		});
 	});
 }
 
@@ -78,18 +78,22 @@ function identifyViaSQLite (authToken) {
 					return;
 				}
 
-				db.all("SELECT * FROM authTokens WHERE token=?", {1: authToken}, (error, rows) => { // @todo regard validUntil
-					if (error !== null) {
-						reject(error);
-						return;
-					}
+				db.all(
+					'SELECT * FROM authTokens WHERE token=?',// @todo regard validUntil
+					{1: authToken},
+					(error, rows) => {
+						if (error !== null) {
+							reject(error);
+							return;
+						}
 
-					if (rows.length < 1) {
-						reject(new AuthenticationError());
-					} else {
-						resolve(new User(rows[0]['userID'], rows[0]['email']));
+						if (rows.length < 1) {
+							reject(new AuthenticationError());
+						} else {
+							resolve(new User(rows[0]['userID'], rows[0]['email']));
+						}
 					}
-				});
+				);
 			}
 		);
 	});

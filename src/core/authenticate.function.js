@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const authenticateViaLDAP = require('./authenticate-via-ldap.function.js').authenticateViaLDAP;
 const authenticateViaSQL = require('./authenticate-via-sql.function.js').authenticateViaSQL;
@@ -27,4 +27,4 @@ exports.authenticate = function (username, password) {
 				throw error;
 			}
 		});
-}
+};

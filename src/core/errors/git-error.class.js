@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const EmuError = require('./emu-error.class.js').EmuError;
 

@@ -1,15 +1,15 @@
-"use strict";
+'use strict';
 
 const fs = require('fs');
 const path = require('path');
 
 const BundleList = require('./types/bundle-list.class').BundleList;
-const Database = require("./types/database.class.js").Database;
+const Database = require('./types/database.class.js').Database;
 const Download = require('./types/download.class').Download;
 const FilenameHelper = require('./filename-helper.class').FilenameHelper;
-const ProjectDataset = require("./types/project-dataset.class.js").ProjectDataset;
-const Session = require("./types/session.class.js").Session;
-const Upload = require("./types/upload.class.js").Upload;
+const ProjectDataset = require('./types/project-dataset.class.js').ProjectDataset;
+const Session = require('./types/session.class.js').Session;
+const Upload = require('./types/upload.class.js').Upload;
 
 /**
  * A collection of asynchronous functions that recursively traverse a certain
@@ -285,7 +285,7 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 							return e.endsWith('_ses');
 						})
 						.map((e) => {
-							return e.substr(0, e.length - '_ses'.length)
+							return e.substr(0, e.length - '_ses'.length);
 						});
 
 
@@ -319,7 +319,7 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 				})
 				.catch((error) => {
 					reject(error);
-				})
+				});
 		});
 	}
 
@@ -336,6 +336,7 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 	 * @returns {Promise<Session, Error>}
 	 */
 	static databaseSessionDirectory(project, database, session) {
+		// eslint-disable-next-line no-unused-vars
 		return new Promise((resolve, reject) => {
 			let sessionPath = FilenameHelper.databaseSessionDirectory(project, database, session);
 			let result = new Session();
@@ -390,7 +391,7 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 					return e.endsWith('_bundleList.json');
 				})
 				.map((e) => {
-					return e.substr(0, e.length - '_bundleList.json'.length)
+					return e.substr(0, e.length - '_bundleList.json'.length);
 				});
 
 			let archiveLabels = files
@@ -461,6 +462,7 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 	 * @returns {Promise<BundleList, Error>}
 	 */
 	static readBundleList (project, database, archiveLabel, bundleList) {
+		// eslint-disable-next-line no-unused-vars
 		return new Promise((resolve, reject) => {
 			let bundleListPath = FilenameHelper.databaseBundleListFile(project, database, archiveLabel, bundleList);
 			let result = new BundleList();
@@ -568,6 +570,7 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 	 * @returns {Promise<string[], Error>}
 	 */
 	static uploadDatabaseDirectory(project, upload, database) {
+		// eslint-disable-next-line no-unused-vars
 		return new Promise((resolve, reject) => {
 			let databasePath = FilenameHelper.uploadDatabaseDirectory(project, upload, database);
 
@@ -578,7 +581,7 @@ exports.DirectoryTraversal = class DirectoryTraversal {
 					return e.endsWith('_ses');
 				})
 				.map((e) => {
-					return e.substr(0, e.length - '_ses'.length)
+					return e.substr(0, e.length - '_ses'.length);
 				});
 
 			resolve(sessions);
