@@ -4,13 +4,14 @@ const ldapjs = require('ldapjs');
 
 const AuthenticationError = require ('./errors/authentication-error.class.js').AuthenticationError;
 const config = require ('../config.js').config;
+const User = require('./types/user.class.js').User;
 
 /**
  * Check whether a given username/password combination is valid in an LDAP
  * directory.
  *
  * Returns a promise. Tries to bind against the LDAP directory and if that
- * succeeds, the returned promise is resolved, without a value. It is rejected
+ * succeeds, the returned promise is resolved to a User object. It is rejected
  * in all other cases.
  */
 exports.authenticateViaLDAP = function (username, password) {
@@ -50,7 +51,7 @@ exports.authenticateViaLDAP = function (username, password) {
 				}
 			} else {
 				ldapClient.unbind();
-				resolve();
+				resolve(new User(username, 'email-na@example.com'));
 			}
 		});
 	});

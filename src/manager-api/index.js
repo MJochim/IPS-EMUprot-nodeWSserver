@@ -19,6 +19,7 @@ const authorize = require('./core/authorize.function.js').authorize;
 const config = require('../config.js').config;
 const EmuError = require('../core/errors/emu-error.class.js').EmuError;
 const runQueryHandler = require('./core/run-query-handler.function.js').runQueryHandler;
+const User = require('../core/types/user.class.js').User;
 const ValidUserInput = require('./core/valid-user-input.class.js').ValidUserInput;
 
 function httpConnectionCallback(request, response) {
@@ -31,6 +32,8 @@ function httpConnectionCallback(request, response) {
 	let validUserInput = new ValidUserInput();
 
 	let userInputFiles = [];
+
+	let authenticatedUser = new User();
 
 	//
 	// The Formidable library parses the HTTP body for us (POST and files).
@@ -61,17 +64,14 @@ function httpConnectionCallback(request, response) {
 			// Check whether <password> is right for <username>
 			return authenticate(validUserInput.username, validUserInput.password);
 		})
-		.then(() => {
+		.then((user) => {
+			authenticatedUser = user;
 			// Check whether <username> is allowed to perform <query> on <project>
-			return authorize(validUserInput.username, validUserInput.query, validUserInput.project);
+			return authorize(authenticatedUser.username, validUserInput.query, validUserInput.project);
 		})
 		.then(() => {
-			let authInfo = {
-				username: validUserInput.username,
-				email: 'no-reply@example.com'
-			};
 			// Perform the actual stuff
-			return runQueryHandler(authInfo, validUserInput, userInputFiles);
+			return runQueryHandler(authenticatedUser, validUserInput, userInputFiles);
 		})
 		.then((queryResult) => {
 			response.write(JSON.stringify({

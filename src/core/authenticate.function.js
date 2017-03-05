@@ -9,7 +9,7 @@ const AuthenticationError = require('./errors/authentication-error.class.js').Au
  *
  * Returns a promise.
  *
- * The promise is resolved, without a value, if authentication succeeds via LDAP
+ * The promise is resolved to a User object if authentication succeeds via LDAP
  * or via SQL.
  *
  * The promise is rejected with an AuthenticationError if both the LDAP and the
