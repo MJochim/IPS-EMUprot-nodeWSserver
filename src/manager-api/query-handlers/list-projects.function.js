@@ -5,6 +5,20 @@ const sqlite3 = require('sqlite3');
 
 const config = require('../../config.js').config;
 
+let isHigherPermission = function (a, b) {
+	if (
+		b === undefined
+		||
+		a === 'admin'
+		||
+		(a === 'write' && b === 'read')
+	) {
+		return true;
+	} else {
+		return false;
+	}
+};
+
 exports.listProjects = function (authenticatedUser,
                                  gitAuthor,
                                  gitCommitter,
@@ -27,8 +41,9 @@ exports.listProjects = function (authenticatedUser,
 
 
 				db.all(
-					'SELECT projects.name, authorizations.level FROM authorizations ' +
-					'JOIN projects ON projects.id=authorizations.project ' +
+					'SELECT projects.name, permissions.permission ' +
+					'FROM permissions ' +
+					'JOIN projects ON projects.id=permissions.project ' +
                     'WHERE username=?',
 					{1: authenticatedUser.username},
 					(error, rows) => {
@@ -37,7 +52,23 @@ exports.listProjects = function (authenticatedUser,
 							return;
 						}
 
-						resolve(rows);
+						let result = [];
+						let permissions = {};
+
+						for (let row of rows) {
+							if (isHigherPermission(row.permission, permissions[row.name])) {
+								permissions[row.name] = row.permission;
+							}
+						}
+
+						for (let projectName of Object.keys(permissions)) {
+							result.push({
+								name: projectName,
+								permission: permissions[projectName]
+							})
+						}
+
+						resolve(result);
 					}
 				);
 			}
