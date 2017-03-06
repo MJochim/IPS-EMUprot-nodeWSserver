@@ -51,11 +51,11 @@ describe('authorize (based on SQLite)', () => {
 	it('should accept some users', (done) => {
 		authorize('alice', 'renameDatabase', 'sample-project')
 			.then((v) => {
-				expect(v).toBeUndefined;
+				expect(v).toBe(undefined);
 				return authorize('bob', 'projectInfo', 'sample-project');
 			})
 			.then((v) => {
-				expect(v).toBeUndefined;
+				expect(v).toBe(undefined);
 				done();
 			})
 			.catch(() => {
