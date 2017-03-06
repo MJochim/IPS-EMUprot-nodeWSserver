@@ -5,7 +5,10 @@ const sqlite3 = require('sqlite3');
 
 const config = require('../../config.js').config;
 
-exports.listProjects = function (username) {
+exports.listProjects = function (authenticatedUser,
+                                 gitAuthor,
+                                 gitCommitter,
+                                 userInputFiles) { // eslint-disable-line no-unused-vars
 	return new Promise ((resolve, reject) => {
 		// @todo implement postgres version
 		if (config.sql.type === 'postgresql') {
@@ -27,13 +30,13 @@ exports.listProjects = function (username) {
 					'SELECT projects.name, authorizations.level FROM authorizations ' +
 					'JOIN projects ON projects.id=authorizations.project ' +
                     'WHERE username=?',
-					{1: username},
+					{1: authenticatedUser.username},
 					(error, rows) => {
 						if (error !== null) {
 							reject(error);
 							return;
 						}
-						
+
 						resolve(rows);
 					}
 				);

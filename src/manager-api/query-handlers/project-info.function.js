@@ -11,7 +11,11 @@ const lock = require('../../core/lock');
  * @param project The name of the project.
  * @returns {Promise}
  */
-exports.projectInfo = function (project) {
+exports.projectInfo = function (authenticatedUser,
+                                gitAuthor,
+                                gitCommitter,
+                                userInputFiles,
+                                project) {
 	return new Promise((resolve, reject) => {
 		lock.lockProject(project)
 			.then((lockID) => {

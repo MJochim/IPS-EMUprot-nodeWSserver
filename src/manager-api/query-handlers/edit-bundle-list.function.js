@@ -12,14 +12,16 @@ const lock = require('../../core/lock');
 const NoBundleListError = require('../../core/errors/no-bundle-list-error.class').NoBundleListError;
 
 
-exports.editBundleList = function (project,
+exports.editBundleList = function (authenticatedUser,
+                                   gitAuthor,
+                                   gitCommitter,
+                                   userInputFiles,
+                                   project,
                                    databaseName,
                                    oldArchiveLabel,
                                    oldBundleListName,
                                    newArchiveLabel,
-                                   newBundleListName,
-                                   gitAuthor,
-                                   gitCommitter) {
+                                   newBundleListName) {
 	return new Promise((resolve, reject) => {
 		let paths = {
 			db: FilenameHelper.databaseDirectory(project, databaseName),

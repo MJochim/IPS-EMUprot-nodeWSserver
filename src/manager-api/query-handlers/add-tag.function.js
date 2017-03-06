@@ -5,7 +5,14 @@ const nodegit = require('nodegit');
 const FilenameHelper = require('../../core/filename-helper.class').FilenameHelper;
 const lock = require('../../core/lock');
 
-exports.addTag = function (project, databaseName, gitCommitID, gitTagLabel, username, gitAuthor) {
+exports.addTag = function (authenticatedUser,
+                           gitAuthor,
+                           gitCommitter,
+                           userInputFiles,
+                           project,
+                           databaseName,
+                           gitCommitID,
+                           gitTagLabel) {
 	return new Promise((resolve, reject) => {
 		lock.lockDatabase(project, databaseName)
 			.then((lockID) => {

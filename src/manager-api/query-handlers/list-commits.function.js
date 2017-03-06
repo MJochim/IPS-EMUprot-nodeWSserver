@@ -7,7 +7,12 @@ const GitCommit = require('../../core/types/git-commit.class').GitCommit;
 const lock = require('../../core/lock');
 
 
-exports.listCommits = function (project, database) {
+exports.listCommits = function (authenticatedUser,
+                                gitAuthor,
+                                gitCommitter,
+                                userInputFiles,
+                                project,
+                                database) {
 	return new Promise((resolve, reject) => {
 		lock.lockDatabase(project, database)
 			.then((lockID) => {

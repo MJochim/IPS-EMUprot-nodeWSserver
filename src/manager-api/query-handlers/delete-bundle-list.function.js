@@ -10,7 +10,14 @@ const lock = require('../../core/lock');
 const NoBundleListError = require('../../core/errors/no-bundle-list-error.class').NoBundleListError;
 
 
-exports.deleteBundleList = function (project, databaseName, bundleListName, archiveLabel, gitAuthor, gitCommitter) {
+exports.deleteBundleList = function (authenticatedUser,
+                                     gitAuthor,
+                                     gitCommitter,
+                                     userInputFiles,
+                                     project,
+                                     databaseName,
+                                     bundleListName,
+                                     archiveLabel) {
 	return new Promise((resolve, reject) => {
 		let bundleListPath = FilenameHelper.databaseBundleListFile(project, databaseName, archiveLabel, bundleListName);
 		let bundleListPathRelative = FilenameHelper.databaseBundleListFile(project, databaseName, archiveLabel, bundleListName, false);

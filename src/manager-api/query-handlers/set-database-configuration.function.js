@@ -10,7 +10,14 @@ const InvalidDBConfigError = require('../../core/errors/invalid-dbconfig-error.c
 const lock = require('../../core/lock');
 const NoDatabaseError = require('../../core/errors/no-database-error.class.js').NoDatabaseError;
 
-exports.setDatabaseConfiguration = function (project, databaseName, bundleComments, bundleFinishedEditing, gitAuthor, gitCommitter) {
+exports.setDatabaseConfiguration = function (authenticatedUser,
+                                             gitAuthor,
+                                             gitCommitter,
+                                             userInputFiles,
+                                             project,
+                                             databaseName,
+                                             bundleComments,
+                                             bundleFinishedEditing) {
 	let index;
 	let lockID;
 	let paths = {

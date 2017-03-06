@@ -11,7 +11,13 @@ const InvalidDBConfigError = require('../../core/errors/invalid-dbconfig-error.c
 const lock = require('../../core/lock');
 const NoDatabaseError = require('../../core/errors/no-database-error.class.js').NoDatabaseError;
 
-exports.renameDatabase = function (project, oldDatabaseName, newDatabaseName, gitAuthor, gitCommitter) {
+exports.renameDatabase = function (authenticatedUser,
+                                   gitAuthor,
+                                   gitCommitter,
+                                   userInputFiles,
+                                   project,
+                                   oldDatabaseName,
+                                   newDatabaseName) {
 	let configObject;
 	let index;
 	let lockID;
