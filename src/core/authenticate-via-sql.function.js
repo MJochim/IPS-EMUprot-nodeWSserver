@@ -1,5 +1,6 @@
 'use strict';
 
+const bcryptjs = require('bcryptjs');
 const pg = require('pg');
 const sqlite3 = require('sqlite3');
 
@@ -42,7 +43,7 @@ function authenticateViaPgSQL (username, password) {
 				reject(error);
 				return;
 			}
-			
+
 			client.query(
 				'SELECT * FROM users WHERE username=$1',
 				[username],
@@ -109,14 +110,5 @@ function authenticateViaSQLite (username, password) {
 }
 
 function checkPassword (givenPassword, databasePassword) {
-	return (givenPassword == databasePassword);
-
-	/*
-	let res = bcrypt.compareSync(givenPassword, databasePassword);
-	if (res) {
-		return Promise.resolve();
-	} else {
-		return Promise.reject(new AuthenticationError());
-	}
-	*/
+	return bcryptjs.compareSync(givenPassword, databasePassword);
 }

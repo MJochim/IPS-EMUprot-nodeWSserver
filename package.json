@@ -13,6 +13,7 @@
   "author": "Markus Jochim",
   "license": "MIT",
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "formidable": "^1.1.1",
     "ldapjs": "^1.0.1",
     "nodegit": "^0.16.0",
