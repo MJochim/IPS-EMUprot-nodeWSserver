@@ -126,7 +126,7 @@
 	 * @returns boolean to indicate if an error occurred (-> false) or all
 	 * went well and we're all happy (-> true)
 	 */
-	function authoriseNewConnection (mJSO, wsConnect) {
+	function authoriseNewConnection(mJSO, wsConnect) {
 		// Parse URL and save which database the client requests to access.
 		// Also save any query parameters. WARNING The query parameters are
 		// stored in wsConnect.urlQuery WITHOUT BEING ESCAPED OR VALIDATED.
@@ -451,7 +451,7 @@
 				callback(false);
 				return;
 			}
-			
+
 			if (rows.length !== 1) {
 				callback(false);
 			} else {
@@ -463,6 +463,128 @@
 				}
 			}
 		});
+	}
+
+
+	/**
+	 * Check if a given user may access a given database.
+	 * This does *NOT* involve checking their password. It only checks
+	 * whether there is a bundle list for the user. The database is given
+	 * via the wsConnect object.
+	 */
+	function authorizeViaBundleList(username, wsConnect) {
+		var deferred = Q.defer();
+
+		var bundleListPath = path.join(
+			wsConnect.path2db,
+			'bundleLists',
+			path.normalize(username + '_bundleList.json')
+		);
+
+		fs.readFile(bundleListPath, 'utf8', function (err, data) {
+			if (err) {
+				log.info('error reading _bundleList:', err,
+					'; clientID:', wsConnect.connectionID,
+					'; clientIP:', wsConnect._socket.remoteAddress);
+
+				// handle wrong user name
+				deferred.reject();
+				return;
+			} else {
+				log.info('found _bndlList.json for user: ', username, ' in: ', wsConnect.upgradeReq.url,
+					'; clientID:', wsConnect.connectionID,
+					'; clientIP:', wsConnect._socket.remoteAddress);
+
+				var parsedData;
+				// safely parse data:
+				try {
+					parsedData = jsonlint.parse(data);
+				} catch (e) {
+					log.info('failed to parse bundle list for user: ', username, ' in: ', wsConnect.upgradeReq.url,
+						'; clientID:', wsConnect.connectionID,
+						'; clientIP:', wsConnect._socket.remoteAddress);
+					deferred.reject();
+					return;
+				}
+
+				deferred.resolve({
+					parsedData: parsedData,
+					path: bundleListPath
+				});
+			}
+		});
+
+		return deferred.promise;
+	}
+
+	function authenticateViaSqlOrLdap(username, password, wsConnect) {
+		var deferred = Q.defer();
+
+		if (cfg.use_ldap) {
+			// test if user can bind to LDAP
+			var binddn = cfg.binddn_left + username + cfg.binddn_right;
+
+			var ldapClient = ldap.createClient({
+				url: cfg.ldap_address,
+				log: log
+			});
+
+			ldapClient.bind(binddn, password, function (err) {
+				if (err) {
+					log.info('user', username, 'failed to bind to LDAP with' +
+						' error:', JSON.stringify(err, undefined, 0),
+						'; clientID:', wsConnect.connectionID,
+						'; clientIP:', wsConnect._socket.remoteAddress);
+
+					ldapClient.unbind();
+
+					// check if in SQLiteDB
+					checkCredentialsInSQLiteDB(username, password, function (res) {
+						if (res) {
+							log.info("user found in SQLiteDB",
+								'; username:', username,
+								'; clientID:', wsConnect.connectionID,
+								'; clientIP:', wsConnect._socket.remoteAddress);
+
+							deferred.resolve();
+						} else {
+							log.info("user not found in SQLiteDB",
+								'; username:', username,
+								'; clientID:', wsConnect.connectionID,
+								'; clientIP:', wsConnect._socket.remoteAddress);
+
+							deferred.reject();
+						}
+					});
+				} else {
+					ldapClient.unbind();
+
+					log.info('User', username, 'was able to bind to LDAP',
+						'; clientID:', wsConnect.connectionID,
+						'; clientIP:', wsConnect._socket.remoteAddress);
+
+					deferred.resolve();
+				}
+			});
+		} else {
+			checkCredentialsInSQLiteDB(username, password, function (res) {
+				if (res) {
+					log.info("user found in SQLiteDB",
+						'; clientID:', wsConnect.connectionID,
+						'; clientIP:', wsConnect._socket.remoteAddress);
+
+					deferred.resolve();
+				} else {
+					log.info("user not found in SQLiteDB",
+						'; clientID:', wsConnect.connectionID,
+						'; clientIP:', wsConnect._socket.remoteAddress);
+
+					deferred.reject();
+				}
+			});
+		}
+
+		return deferred.promise;
 	}
 
 	/**
@@ -777,145 +899,36 @@
 	}
 
 	function defaultHandlerLogonUser(mJSO, wsConnect) {
-		var bundleListPath = path.join(
-			wsConnect.path2db,
-			'bundleLists',
-			path.normalize(mJSO.userName + '_bundleList.json')
-		);
+		authorizeViaBundleList(mJSO.userName, wsConnect).then(
+			function (bundleListInfo) {
+				authenticateViaSqlOrLdap(mJSO.userName, mJSO.pwd).then(
+					function (value) {
+						// mark connection as authorised for the
+						// requested db
+						wsConnect.authorised = true;
+						// add ID to connection object
+						wsConnect.ID = mJSO.userName;
+						// add bndlList to connection object
+						if (cfg.filter_bndlList_for_finishedEditing) {
+							wsConnect.bndlList = filterBndlList(bundleListInfo.parsedData);
+						} else {
+							wsConnect.bndlList = bundleListInfo.parsedData;
+						}
+						wsConnect.bndlListPath = bundleListInfo.path;
 
-		fs.readFile(bundleListPath, 'utf8', function (err, data) {
-			if (err) {
-
-				log.info('error reading _bundleList:', err,
-					'; clientID:', wsConnect.connectionID,
-					'; clientIP:', wsConnect._socket.remoteAddress);
-
-				// handle wrong user name
+						sendMessage(wsConnect, mJSO.callbackID, true, '', 'LOGGEDON');
+					},
+					function (reason) {
+						// @todo this string ('cant login ..') should be in message rather than data I'd say, since it is not machine-readable
+						sendMessage(wsConnect, mJSO.callbackID, true, '', 'Can\'t log on with given credentials');
+					}
+				);
+			},
+			function (reason) {
+				// There is no bundle list for the user -> reject them
 				sendMessage(wsConnect, mJSO.callbackID, true, '', 'BADUSERNAME');
-			} else {
-
-				var parsedData;
-				// safely parse data:
-				try {
-					parsedData = jsonlint.parse(data);
-				} catch (e) {
-					sendMessage(wsConnect, mJSO.callbackID, false, 'Error' +
-						' parsing _bundleList.json: ' + e);
-
-					console.log(e);
-
-					return;
-				}
-
-				log.info('found _bndlList.json for user: ', mJSO.userName, ' in: ', wsConnect.upgradeReq.url,
-					'; clientID:', wsConnect.connectionID,
-					'; clientIP:', wsConnect._socket.remoteAddress);
-
-				// test if user is can bind to LDAP
-				var binddn = cfg.binddn_left + mJSO.userName + cfg.binddn_right;
-
-				var ldapClient = ldap.createClient({
-					url: cfg.ldap_address,
-					log: log
-				});
-
-				if (cfg.use_ldap) {
-					ldapClient.bind(binddn, mJSO.pwd, function (err) {
-						if (err) {
-							log.info('user', mJSO.userName, 'failed to bind to LDAP with error:', JSON.stringify(err, undefined, 0),
-								'; clientID:', wsConnect.connectionID,
-								'; clientIP:', wsConnect._socket.remoteAddress);
-
-							ldapClient.unbind();
-
-							// check if in SQLiteDB
-							checkCredentialsInSQLiteDB(mJSO.userName, mJSO.pwd, function (res) {
-								if (res) {
-
-									log.info("user found in SQLiteDB",
-										'; clientID:', wsConnect.connectionID,
-										'; clientIP:', wsConnect._socket.remoteAddress);
-
-									// mark connection as authorised for the
-									// requested db
-									wsConnect.authorised = true;
-									// add ID to connection object
-									wsConnect.ID = mJSO.userName;
-									// add bndlList to connection object
-									if (cfg.filter_bndlList_for_finishedEditing) {
-										wsConnect.bndlList = filterBndlList(parsedData);
-									} else {
-										wsConnect.bndlList = parsedData;
-									}
-									wsConnect.bndlListPath = bundleListPath;
-
-									sendMessage(wsConnect, mJSO.callbackID, true, '', 'LOGGEDON');
-								} else {
-									log.info("user not found in SQLiteDB",
-										'; clientID:', wsConnect.connectionID,
-										'; clientIP:', wsConnect._socket.remoteAddress);
-
-									// @todo this string ('cant login ..') should be in message rather than data I'd say, since it is not machine-readable
-									sendMessage(wsConnect, mJSO.callbackID, true, '', 'Can\'t log on with given credentials');
-								}
-							});
-
-
-						} else {
-							ldapClient.unbind();
-
-							log.info('User', mJSO.userName, 'was able to bind to LDAP',
-								'; clientID:', wsConnect.connectionID,
-								'; clientIP:', wsConnect._socket.remoteAddress);
-
-							// mark connection as authorised for the
-							// requested db
-							wsConnect.authorised = true;
-							// add ID to connection object
-							wsConnect.ID = mJSO.userName;
-							// add bndlList to connection object
-							if (cfg.filter_bndlList_for_finishedEditing) {
-								wsConnect.bndlList = filterBndlList(parsedData);
-							} else {
-								wsConnect.bndlList = parsedData;
-							}
-							wsConnect.bndlListPath = bundleListPath;
-
-							// reply
-							sendMessage(wsConnect, mJSO.callbackID, true, '', 'LOGGEDON');
-						}
-					});
-				} else {
-					// SIC!!! redundant code from above... should wrap in func...
-					// check if in SQLiteDB
-					checkCredentialsInSQLiteDB(mJSO.userName, mJSO.pwd, function (res) {
-						if (res) {
-
-							log.info("user found in SQLiteDB",
-								'; clientID:', wsConnect.connectionID,
-								'; clientIP:', wsConnect._socket.remoteAddress);
-
-							// mark connection as authorised for the
-							// requested db
-							wsConnect.authorised = true;
-							// add ID to connection object
-							wsConnect.ID = mJSO.userName;
-							// add bndlList to connection object
-							wsConnect.bndlList = JSON.parse(data);
-
-							sendMessage(wsConnect, mJSO.callbackID, true, '', 'LOGGEDON');
-						} else {
-
-							log.info("user not found in SQLiteDB",
-								'; clientID:', wsConnect.connectionID,
-								'; clientIP:', wsConnect._socket.remoteAddress);
-
-							sendMessage(wsConnect, mJSO.callbackID, true, '', 'Can\'t log on with given credentials');
-						}
-					});
-				}
 			}
-		});
+		);
 	}
 
 	function defaultHandlerGetGlobalDBConfig(mJSO, wsConnect) {
@@ -1122,7 +1135,7 @@
 					// @todo kill respective connection?
 
 				});
-				pluginDomain.run ( function() {
+				pluginDomain.run(function () {
 					// Call handler
 					(wsConnect.messageHandlers[mJSO.type])(mJSO, wsConnect);
 				});
