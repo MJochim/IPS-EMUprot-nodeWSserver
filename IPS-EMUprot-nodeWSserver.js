@@ -46,6 +46,7 @@
 	var exec = require('child_process').exec;
 	var bcrypt = require('bcryptjs');
 	var sqlite3 = require('sqlite3').verbose();
+	var pg = require('pg');
 	var async = require('async');
 	var Q = require('q');
 	var jsonlint = require('jsonlint');
@@ -895,13 +896,93 @@
 	}
 
 	function defaultHandlerGetDoUserManagement(mJSO, wsConnect) {
-		sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
+		// IF the user did not send a secretToken, we ask them for
+		// username/password. Otherwise, we check the secret token.
+		if (!wsConnect.urlQuery.hasOwnProperty('secretToken')) {
+			sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
+		} else {
+			var secretToken = wsConnect.urlQuery.secretToken;
+
+			// Validate input
+			let regex = /[a-fA-F0-9]+/;
+			if (!regex.test(secretToken)) {
+				// Error in secretToken handling - tell the webapp to do normal user management
+				sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
+			}
+
+			// ask postgres for secretToken
+			try {
+				var client = new pg.Client({
+					host: cfg.sql.host,
+					port: cfg.sql.port,
+					user: cfg.sql.user,
+					password: cfg.sql.password,
+					database: cfg.sql.database,
+					ssl: cfg.sql.ssl
+				});
+
+				client.connect(function (error) {
+					if (error) {
+						// Error in secretToken handling - tell the webapp to do normal user management
+						sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
+						return;
+					}
+
+					client.query(
+						"SELECT * FROM authtokens WHERE token = $1 AND" +
+						" validuntil > current_timestamp",
+						[secretToken],
+						function (error, result) {
+							if (error) {
+								// Error in secretToken handling - tell the webapp to do normal user management
+								sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
+								return;
+							}
+
+							if (result.rows.length === 0) {
+								// Error in secretToken handling - tell the webapp to do normal user management
+								sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
+								return;
+							}
+
+							var username = result.rows[0].userid;
+
+							authorizeViaBundleList(username, wsConnect).then(
+								function(bundleListInfo) {
+									// mark connection as authorised for the
+									// requested db
+									wsConnect.authorised = true;
+									// add ID to connection object
+									wsConnect.ID = username;
+									// add bndlList to connection object
+									if (cfg.filter_bndlList_for_finishedEditing) {
+										wsConnect.bndlList = filterBndlList(bundleListInfo.parsedData);
+									} else {
+										wsConnect.bndlList = bundleListInfo.parsedData;
+									}
+									wsConnect.bndlListPath = bundleListInfo.path;
+
+									sendMessage(wsConnect, mJSO.callbackID, true, '', 'NO');
+								},
+								function (reason) {
+									// Error in secretToken handling - tell the webapp to do normal user management
+									sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
+								}
+							);
+						}
+					);
+				});
+			} catch (error) {
+				// Error in secretToken handling - tell the webapp to do normal user management
+				sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
+			}
+		}
 	}
 
 	function defaultHandlerLogonUser(mJSO, wsConnect) {
 		authorizeViaBundleList(mJSO.userName, wsConnect).then(
 			function (bundleListInfo) {
-				authenticateViaSqlOrLdap(mJSO.userName, mJSO.pwd).then(
+				authenticateViaSqlOrLdap(mJSO.userName, mJSO.pwd, wsConnect).then(
 					function (value) {
 						// mark connection as authorised for the
 						// requested db
