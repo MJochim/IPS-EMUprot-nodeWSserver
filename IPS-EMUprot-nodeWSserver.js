@@ -939,6 +939,8 @@
 								return;
 							}
 
+							client.end();
+
 							if (result.rows.length === 0) {
 								// Error in secretToken handling - tell the webapp to do normal user management
 								sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
