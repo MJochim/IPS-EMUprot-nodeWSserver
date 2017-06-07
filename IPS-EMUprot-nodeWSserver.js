@@ -109,7 +109,7 @@
 				res.on('end', function() {
 					schemasData[schemasDataIdx] = JSON.parse(body);
 				if(schemasDataIdx === 2){ // add emuwebappConfigSchema to tv4 as it is ref. in DBconfigFileSchema
-					tv4.addSchema(schemasData[1].properties.EMUwebAppConfig.$ref, schemasData[2]);
+					tv4.addSchema('https://raw.githubusercontent.com/IPS-LMU/EMU-webApp/master/app/schemaFiles/emuwebappConfigSchema.json', schemasData[2]);
 					lastSchemaUpdate = Date.now() / 1000;
 				}
 
