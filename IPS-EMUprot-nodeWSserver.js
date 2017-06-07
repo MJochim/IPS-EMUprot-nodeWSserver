@@ -31,9 +31,9 @@
  */
 
 
-(function () {
+ (function () {
 
-	"use strict";
+ 	"use strict";
 
 	// load deps
 	var fs = require('fs');
@@ -52,6 +52,11 @@
 	var jsonlint = require('jsonlint');
 	var url = require('url');
 	var domain = require('domain');
+	
+	var https = require('https');
+	var JSONLint = require('json-lint');
+	var tv4 = require('tv4');
+
 
 	// for authentication to work
 	process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -62,7 +67,7 @@
 		name: "nodeEmuWS"
 	});
 
-	log.info("starting server...");
+	log.info('starting server...');
 
 	// read in config file
 	var cfg;
@@ -83,6 +88,49 @@
 	});
 
 	////////////////////////////////////////////////
+	// get schema files
+	var lastSchemaUpdate;
+	var schemasData = [];
+	var schemaURLs = [
+	'https://raw.githubusercontent.com/IPS-LMU/EMU-webApp/master/app/schemaFiles/annotationFileSchema.json',
+	'https://raw.githubusercontent.com/IPS-LMU/EMU-webApp/master/app/schemaFiles/DBconfigFileSchema.json',
+	'https://raw.githubusercontent.com/IPS-LMU/EMU-webApp/master/app/schemaFiles/emuwebappConfigSchema.json'];
+
+	function updateSchemas(){
+
+		function getSchemaFromURL(schemaURL, schemasDataIdx){
+			https.get(schemaURL, function(res) {
+				var body = '';
+
+				res.on('data', function(chunk) {
+					body += chunk;
+				});
+
+				res.on('end', function() {
+					schemasData[schemasDataIdx] = JSON.parse(body);
+				if(schemasDataIdx === 2){ // add emuwebappConfigSchema to tv4 as it is ref. in DBconfigFileSchema
+					tv4.addSchema(schemasData[1].properties.EMUwebAppConfig.$ref, schemasData[2]);
+					lastSchemaUpdate = Date.now() / 1000;
+				}
+
+				log.info('Finished loading schemaURL:' + schemaURLs[schemasDataIdx]);
+			});
+
+			}).on('error', function(e) {
+				log.error("Got error while getting schemas files: ", e);
+			});
+		}
+
+		// loop through schema files and get them from GitHub
+		for(var i = 0; i < schemaURLs.length; i++){
+			getSchemaFromURL(schemaURLs[i], i);
+		}
+
+	}
+
+	updateSchemas();
+
+	////////////////////////////////////////////////
 	// set up certs and keys for secure connection
 
 
@@ -92,16 +140,92 @@
 
 	var app = null;
 
-	// dummy request processing
+	// request processing (handles validation of annotJSON and DBconfigJSON)
 	var processRequest = function (req, res) {
 
-		res.writeHead(200);
-		res.end("All glory to WebSockets!\n");
-	};
+		if (req.method === 'GET') {
+			res.writeHead(200);
+			res.end("not processing GET requests!\n");
+		}
+		if (req.method === 'POST') {
+		// the body of the POST is JSON payload.
+		var queryData = url.parse(req.url, true).query;
+		// console.log(request.url);
+		var data = '';
+		req.addListener('data', function (chunk) {
+			data += chunk;
+		});
+		req.addListener('end', function () {
+			var lint = JSONLint(data);
+			var mess = {};
+			if (lint.error) {
+				mess.type = 'ERROR';
+				mess.from = 'JSLINT (means badly formated json)';
+				mess.ERROR_MESSAGE = lint.error;
+				mess.ERROR_LINE = lint.line;
+				mess.ERROR_CHARACTER = lint.character;
 
-	if (cfg.ssl) {
+				res.writeHead(200, {
+					'content-type': 'text/plain'
+				});
+				res.end(JSON.stringify(mess, null, 2));
+			} else {
+				var validRes;
+				var validRequest;
+				// check if schema files should be updated (update if last update is over 3600 seconds == 1 hour ago)
+				if(lastSchemaUpdate - Date.now() / 1000 >= 3600){
+					updateSchemas();
+				}
 
-		app = httpServ.createServer({
+				if (req.url === '/_annot') {
+					validRequest = true;
+
+					validRes = tv4.validate(JSON.parse(data), schemasData[0]);
+
+				} else if (req.url === '/_DBconfig') {
+					validRequest = true;
+					console.log("DBconfig")
+					validRes = tv4.validate(JSON.parse(data), schemasData[1]);
+
+				} else {
+					validRequest = false;
+				}
+
+				if (!validRequest){
+					mess.type = 'ERROR';
+					mess.message = 'Bad request URL! Only supported files to validate are _annot and _DBconfig (see server README.md for working examples)';
+					res.writeHead(400, {
+						'content-type': 'text/plain'
+					});
+
+					res.end(JSON.stringify(mess, null, 2));
+
+				} else if (validRes) {
+					mess.type = 'SUCCESS';
+					res.writeHead(200, {
+						'content-type': 'text/plain'
+					});
+					res.end(JSON.stringify(mess, null, 2));
+				} else {
+					mess.type = 'ERROR';
+					mess.from = 'JSONSCHEMA (means does not comply to schema)';
+					mess.ERRORS = tv4.error;
+
+					res.writeHead(200, {
+						'content-type': 'text/plain'
+					});
+					res.end(JSON.stringify(mess, null, 2));
+				}
+
+
+			}
+		});
+}
+};
+
+if (cfg.ssl) {
+
+	app = httpServ.createServer({
 
 			// providing server with  SSL key/cert
 			key: fs.readFileSync(cfg.ssl_key),
@@ -109,10 +233,10 @@
 
 		}, processRequest).listen(cfg.port);
 
-	} else {
+} else {
 
-		app = httpServ.createServer(processRequest).listen(cfg.port);
-	}
+	app = httpServ.createServer(processRequest).listen(cfg.port);
+}
 
 	// passing or reference to web server so WS would knew port and SSL capabilities
 	var wss = new WebSocketServer({
@@ -127,7 +251,7 @@
 	 * @returns boolean to indicate if an error occurred (-> false) or all
 	 * went well and we're all happy (-> true)
 	 */
-	function authoriseNewConnection(mJSO, wsConnect) {
+	 function authoriseNewConnection(mJSO, wsConnect) {
 		// Parse URL and save which database the client requests to access.
 		// Also save any query parameters. WARNING The query parameters are
 		// stored in wsConnect.urlQuery WITHOUT BEING ESCAPED OR VALIDATED.
@@ -170,16 +294,16 @@
 	 * Plugins are allowed to override the handler functions for all request
 	 * types but GETPROTOCOL.
 	 */
-	var defaultMessageHandlers = {
-		GETPROTOCOL: defaultHandlerGetProtocol,
-		GETDOUSERMANAGEMENT: defaultHandlerGetDoUserManagement,
-		LOGONUSER: defaultHandlerLogonUser,
-		GETGLOBALDBCONFIG: defaultHandlerGetGlobalDBConfig,
-		GETBUNDLELIST: defaultHandlerGetBundleList,
-		GETBUNDLE: defaultHandlerGetBundle,
-		SAVEBUNDLE: defaultHandlerSaveBundle,
-		DISCONNECTWARNING: defaultHandlerDisconnectWarning
-	};
+	 var defaultMessageHandlers = {
+	 	GETPROTOCOL: defaultHandlerGetProtocol,
+	 	GETDOUSERMANAGEMENT: defaultHandlerGetDoUserManagement,
+	 	LOGONUSER: defaultHandlerLogonUser,
+	 	GETGLOBALDBCONFIG: defaultHandlerGetGlobalDBConfig,
+	 	GETBUNDLELIST: defaultHandlerGetBundleList,
+	 	GETBUNDLE: defaultHandlerGetBundle,
+	 	SAVEBUNDLE: defaultHandlerSaveBundle,
+	 	DISCONNECTWARNING: defaultHandlerDisconnectWarning
+	 };
 
 	/**
 	 * Look for a plugin configuration file in database and load the plugin
@@ -193,7 +317,7 @@
 	 * @throws When loadPlugin() fails for one of the plugins.
 	 * @param wsConnect The connection object to attach the plugin to.
 	 */
-	function loadPluginConfiguration(wsConnect) {
+	 function loadPluginConfiguration(wsConnect) {
 		// Read plugin configuration file
 		var pluginConfigPath = path.join(wsConnect.path2db, 'nodejs_server_plugins.json');
 
@@ -229,11 +353,11 @@
 	 * @param wsConnect The connection to attach the plugin's event handlers to
 	 * @param pluginName The name of the plugin to be loaded
 	 */
-	function loadPlugin(wsConnect, pluginName) {
-		log.info('Loading plugin:', pluginName, '; DB:', wsConnect.path2db);
+	 function loadPlugin(wsConnect, pluginName) {
+	 	log.info('Loading plugin:', pluginName, '; DB:', wsConnect.path2db);
 
-		try {
-			var pluginPath = './' + path.join('plugins', pluginName);
+	 	try {
+	 		var pluginPath = './' + path.join('plugins', pluginName);
 
 			// Delete plugin from require.cache so we can actually load the
 			// current version of it
@@ -302,9 +426,9 @@
 	 * @param urlString The URL to parse
 	 * @returns {"path2db": string, "query": object}
 	 */
-	function parseURL(urlString) {
-		var urlObj = url.parse(urlString, true);
-		var path2db = urlObj.pathname;
+	 function parseURL(urlString) {
+	 	var urlObj = url.parse(urlString, true);
+	 	var path2db = urlObj.pathname;
 
 		// Make sure the requested DB path has no .. or . in it, so it
 		// cannot escape from our database directory
@@ -343,11 +467,11 @@
 	 * @param message Human-readable message text
 	 * @param data Machine-readable data
 	 */
-	function sendMessage(wsConnect, callbackID, success, message, data) {
-		var type = 'ERROR';
-		if (success) {
-			type = 'SUCCESS';
-		}
+	 function sendMessage(wsConnect, callbackID, success, message, data) {
+	 	var type = 'ERROR';
+	 	if (success) {
+	 		type = 'SUCCESS';
+	 	}
 		// @todo is it okay to always send data and message, even if they're
 		// null or empty string?
 		wsConnect.send(JSON.stringify({
@@ -363,15 +487,15 @@
 	/**
 	 *
 	 */
-	function onlyUnique(value, index, self) {
-		return self.indexOf(value) === index;
-	}
+	 function onlyUnique(value, index, self) {
+	 	return self.indexOf(value) === index;
+	 }
 
 	/**
 	 *
 	 */
-	function findAllTracksInDBconfigNeededByEMUwebApp(DBconfig) {
-		var allTracks = [];
+	 function findAllTracksInDBconfigNeededByEMUwebApp(DBconfig) {
+	 	var allTracks = [];
 
 		// anagestConfig ssffTracks
 		DBconfig.levelDefinitions.forEach(function (ld) {
@@ -433,38 +557,38 @@
 	/**
 	 *
 	 */
-	function generateUUID() {
-		function rand(s) {
-			var p = (Math.random().toString(16) + '000000000').substr(2, 8);
-			return s ? '-' + p.substr(0, 4) + '-' + p.substr(4, 4) : p;
-		}
+	 function generateUUID() {
+	 	function rand(s) {
+	 		var p = (Math.random().toString(16) + '000000000').substr(2, 8);
+	 		return s ? '-' + p.substr(0, 4) + '-' + p.substr(4, 4) : p;
+	 	}
 
-		return rand() + rand(true) + rand(true) + rand();
-	}
+	 	return rand() + rand(true) + rand(true) + rand();
+	 }
 
 	/**
 	 *
 	 */
-	function checkCredentialsInSQLiteDB(username, pwd, callback) {
-		usersDB.all("SELECT * FROM users WHERE username='" + username + "'", function (err, rows) {
-			if (err !== null) {
-				log.error('SQLite database error: ', err);
-				callback(false);
-				return;
-			}
+	 function checkCredentialsInSQLiteDB(username, pwd, callback) {
+	 	usersDB.all("SELECT * FROM users WHERE username='" + username + "'", function (err, rows) {
+	 		if (err !== null) {
+	 			log.error('SQLite database error: ', err);
+	 			callback(false);
+	 			return;
+	 		}
 
-			if (rows.length !== 1) {
-				callback(false);
-			} else {
-				var res = bcrypt.compareSync(pwd, rows[0].password);
-				if (res) {
-					callback(true);
-				} else {
-					callback(false);
-				}
-			}
-		});
-	}
+	 		if (rows.length !== 1) {
+	 			callback(false);
+	 		} else {
+	 			var res = bcrypt.compareSync(pwd, rows[0].password);
+	 			if (res) {
+	 				callback(true);
+	 			} else {
+	 				callback(false);
+	 			}
+	 		}
+	 	});
+	 }
 
 
 	/**
@@ -473,20 +597,20 @@
 	 * whether there is a bundle list for the user. The database is given
 	 * via the wsConnect object.
 	 */
-	function authorizeViaBundleList(username, wsConnect) {
-		var deferred = Q.defer();
+	 function authorizeViaBundleList(username, wsConnect) {
+	 	var deferred = Q.defer();
 
-		var bundleListPath = path.join(
-			wsConnect.path2db,
-			'bundleLists',
-			path.normalize(username + '_bundleList.json')
-		);
+	 	var bundleListPath = path.join(
+	 		wsConnect.path2db,
+	 		'bundleLists',
+	 		path.normalize(username + '_bundleList.json')
+	 		);
 
-		fs.readFile(bundleListPath, 'utf8', function (err, data) {
-			if (err) {
-				log.info('error reading _bundleList:', err,
-					'; clientID:', wsConnect.connectionID,
-					'; clientIP:', wsConnect._socket.remoteAddress);
+	 	fs.readFile(bundleListPath, 'utf8', function (err, data) {
+	 		if (err) {
+	 			log.info('error reading _bundleList:', err,
+	 				'; clientID:', wsConnect.connectionID,
+	 				'; clientIP:', wsConnect._socket.remoteAddress);
 
 				// handle wrong user name
 				deferred.reject();
@@ -515,13 +639,13 @@
 			}
 		});
 
-		return deferred.promise;
-	}
+	 	return deferred.promise;
+	 }
 
-	function authenticateViaSqlOrLdap(username, password, wsConnect) {
-		var deferred = Q.defer();
+	 function authenticateViaSqlOrLdap(username, password, wsConnect) {
+	 	var deferred = Q.defer();
 
-		if (cfg.use_ldap) {
+	 	if (cfg.use_ldap) {
 			// test if user can bind to LDAP
 			var binddn = cfg.binddn_left + username + cfg.binddn_right;
 
@@ -567,116 +691,116 @@
 					deferred.resolve();
 				}
 			});
+} else {
+	checkCredentialsInSQLiteDB(username, password, function (res) {
+		if (res) {
+			log.info("user found in SQLiteDB",
+				'; clientID:', wsConnect.connectionID,
+				'; clientIP:', wsConnect._socket.remoteAddress);
+
+			deferred.resolve();
 		} else {
-			checkCredentialsInSQLiteDB(username, password, function (res) {
-				if (res) {
-					log.info("user found in SQLiteDB",
-						'; clientID:', wsConnect.connectionID,
-						'; clientIP:', wsConnect._socket.remoteAddress);
+			log.info("user not found in SQLiteDB",
+				'; clientID:', wsConnect.connectionID,
+				'; clientIP:', wsConnect._socket.remoteAddress);
 
-					deferred.resolve();
-				} else {
-					log.info("user not found in SQLiteDB",
-						'; clientID:', wsConnect.connectionID,
-						'; clientIP:', wsConnect._socket.remoteAddress);
-
-					deferred.reject();
-				}
-			});
+			deferred.reject();
 		}
+	});
+}
 
-		return deferred.promise;
-	}
-
-	/**
-	 *
-	 */
-	function updateBndlListEntry(bndlListPath, entry) {
-		var deferred = Q.defer();
-
-		fs.readFile(bndlListPath, function (err, data) {
-			if (err) {
-				deferred.reject(new Error(err));
-			} else {
-				var curBndlList = JSON.parse(data);
-
-				var foundEntry = false;
-				for (var i = 0; i < curBndlList.length; i++) {
-					if (curBndlList[i].name === entry.name && curBndlList[i].session === entry.session) {
-						curBndlList[i] = entry;
-						foundEntry = true;
-						break;
-					}
-				}
-
-				if (foundEntry) {
-					fs.writeFile(bndlListPath, JSON.stringify(curBndlList, undefined, 2), function (err) {
-						if (err) {
-							deferred.reject(new Error(err));
-						} else {
-							deferred.resolve();
-						}
-					});
-				} else {
-					deferred.reject();
-				}
-			}
-		});
-
-		return deferred.promise;
-	}
+return deferred.promise;
+}
 
 	/**
 	 *
 	 */
-	function filterBndlList(bndlList) {
+	 function updateBndlListEntry(bndlListPath, entry) {
+	 	var deferred = Q.defer();
 
-		var filtBndlList = [];
+	 	fs.readFile(bndlListPath, function (err, data) {
+	 		if (err) {
+	 			deferred.reject(new Error(err));
+	 		} else {
+	 			var curBndlList = JSON.parse(data);
 
-		for (var i = 0; i < bndlList.length; i++) {
-			if (bndlList[i].finishedEditing !== true) {
-				filtBndlList.push(bndlList[i]);
-			}
-		}
+	 			var foundEntry = false;
+	 			for (var i = 0; i < curBndlList.length; i++) {
+	 				if (curBndlList[i].name === entry.name && curBndlList[i].session === entry.session) {
+	 					curBndlList[i] = entry;
+	 					foundEntry = true;
+	 					break;
+	 				}
+	 			}
 
-		return filtBndlList;
+	 			if (foundEntry) {
+	 				fs.writeFile(bndlListPath, JSON.stringify(curBndlList, undefined, 2), function (err) {
+	 					if (err) {
+	 						deferred.reject(new Error(err));
+	 					} else {
+	 						deferred.resolve();
+	 					}
+	 				});
+	 			} else {
+	 				deferred.reject();
+	 			}
+	 		}
+	 	});
 
-	}
+	 	return deferred.promise;
+	 }
 
 	/**
 	 *
 	 */
-	function commitToGitRepo(path2db, ID, bundleName, connectionID, remoteAddress) {
-		var deferred = Q.defer();
+	 function filterBndlList(bndlList) {
 
-		fs.exists(path.join(path2db, '.git'), function (exists) {
-			if (exists) {
-				var commitMessage = 'EMU-webApp auto save commit; User: ' + ID + '; DB: ' + path2db + '; Bundle: ' + bundleName;
-				var gitCommand = 'git --git-dir=' + path.join(path2db, '.git') + ' --work-tree=' + path2db + ' commit -am "' + commitMessage + '"';
+	 	var filtBndlList = [];
 
-				log.info('Commit to dbs git repo with command: ' + gitCommand,
-					'; clientID:', connectionID,
-					'; clientIP:', remoteAddress);
+	 	for (var i = 0; i < bndlList.length; i++) {
+	 		if (bndlList[i].finishedEditing !== true) {
+	 			filtBndlList.push(bndlList[i]);
+	 		}
+	 	}
 
-				exec(gitCommand, function (error, stdout, stderr) {
-					if (error !== null) {
-						log.info('Error commiting to git repo',
-							'; clientID:', connectionID,
-							'; clientIP:', remoteAddress);
-						deferred.resolve();
-					}
-					deferred.resolve();
-				});
-			} else {
-				log.info('no .git directory found',
-					'; clientID:', connectionID,
-					'; clientIP:', remoteAddress);
-				deferred.resolve();
-			}
-		});
+	 	return filtBndlList;
 
-		return deferred.promise;
-	}
+	 }
+
+	/**
+	 *
+	 */
+	 function commitToGitRepo(path2db, ID, bundleName, connectionID, remoteAddress) {
+	 	var deferred = Q.defer();
+
+	 	fs.exists(path.join(path2db, '.git'), function (exists) {
+	 		if (exists) {
+	 			var commitMessage = 'EMU-webApp auto save commit; User: ' + ID + '; DB: ' + path2db + '; Bundle: ' + bundleName;
+	 			var gitCommand = 'git --git-dir=' + path.join(path2db, '.git') + ' --work-tree=' + path2db + ' commit -am "' + commitMessage + '"';
+
+	 			log.info('Commit to dbs git repo with command: ' + gitCommand,
+	 				'; clientID:', connectionID,
+	 				'; clientIP:', remoteAddress);
+
+	 			exec(gitCommand, function (error, stdout, stderr) {
+	 				if (error !== null) {
+	 					log.info('Error commiting to git repo',
+	 						'; clientID:', connectionID,
+	 						'; clientIP:', remoteAddress);
+	 					deferred.resolve();
+	 				}
+	 				deferred.resolve();
+	 			});
+	 		} else {
+	 			log.info('no .git directory found',
+	 				'; clientID:', connectionID,
+	 				'; clientIP:', remoteAddress);
+	 			deferred.resolve();
+	 		}
+	 	});
+
+	 	return deferred.promise;
+	 }
 
 
 	/**
@@ -690,15 +814,15 @@
 	 * @param wsConnect The connection that requested the bundle.
 	 * @returns A promise resolving to a a "bundle bunch of files".
 	 */
-	function readBundleFromDisk(sessionPath, bundleName, wsConnect) {
-		var deferred = Q.defer();
+	 function readBundleFromDisk(sessionPath, bundleName, wsConnect) {
+	 	var deferred = Q.defer();
 
-		var bundlePath = path.join(sessionPath, bundleName + '_bndl');
+	 	var bundlePath = path.join(sessionPath, bundleName + '_bndl');
 
-		var bundle = {};
-		bundle.ssffFiles = [];
+	 	var bundle = {};
+	 	bundle.ssffFiles = [];
 
-		var allFilePaths = [];
+	 	var allFilePaths = [];
 
 		// add media file path
 		var mediaFilePath = path.join(bundlePath, bundleName + '.' + wsConnect.dbConfig.mediafileExtension);
@@ -758,8 +882,8 @@
 			}
 		});
 
-		return deferred.promise;
-	}
+return deferred.promise;
+}
 
 	/**
 	 * Write a bundle to disk and return a promise to indicate success.
@@ -772,8 +896,8 @@
 	 * @returns A promise that is rejected with a message string or resolves
 	 *           to null.
 	 */
-	function writeBundleToDisk(sessionPath, bundleName, data, wsConnect) {
-		var deferred = Q.defer();
+	 function writeBundleToDisk(sessionPath, bundleName, data, wsConnect) {
+	 	var deferred = Q.defer();
 
 		// update bundleList
 		updateBndlListEntry(wsConnect.bndlListPath, {
@@ -787,12 +911,12 @@
 				sessionPath,
 				bundleName + '_bndl',
 				path.normalize(bundleName + '_annot.json')
-			);
+				);
 			var fmsPath = path.join(
 				sessionPath,
 				bundleName + '_bndl',
 				path.normalize(bundleName + '.fms')
-			);
+				);
 
 			fs.writeFile(annotJSONpath, JSON.stringify(data.annotation, undefined, 2), function (err) {
 				if (err) {
@@ -832,12 +956,12 @@
 				}
 			});
 
-		}, function (err) {
-			deferred.reject('Error updating bundleList: ' + err);
-		});
+}, function (err) {
+	deferred.reject('Error updating bundleList: ' + err);
+});
 
-		return deferred.promise;
-	}
+return deferred.promise;
+}
 
 	/**
 	 * Read database configuration from disk and return a promise resolving
@@ -847,18 +971,18 @@
 	 * @param wsConnect The connection that requested the configuration.
 	 * @returns A promise resolving to a DBConfig object.
 	 */
-	function readGlobalDBConfigFromDisk(path, wsConnect) {
-		var deferred = Q.defer();
+	 function readGlobalDBConfigFromDisk(path, wsConnect) {
+	 	var deferred = Q.defer();
 
-		fs.readFile(path, 'utf8', function (err, data) {
-			if (err) {
-				log.info('Error reading _DBconfig: ' + err,
-					'; clientID:', wsConnect.connectionID,
-					'; clientIP:', wsConnect._socket.remoteAddress);
+	 	fs.readFile(path, 'utf8', function (err, data) {
+	 		if (err) {
+	 			log.info('Error reading _DBconfig: ' + err,
+	 				'; clientID:', wsConnect.connectionID,
+	 				'; clientIP:', wsConnect._socket.remoteAddress);
 
-				deferred.reject(err);
-			} else {
-				wsConnect.dbConfig = JSON.parse(data);
+	 			deferred.reject(err);
+	 		} else {
+	 			wsConnect.dbConfig = JSON.parse(data);
 
 				// figure out which SSFF files should be sent with each bundle
 				wsConnect.allTrackDefsNeededByEMUwebApp = findAllTracksInDBconfigNeededByEMUwebApp(wsConnect.dbConfig);
@@ -867,8 +991,8 @@
 			}
 		});
 
-		return deferred.promise;
-	}
+	 	return deferred.promise;
+	 }
 
 	//
 	// End of helper functions
@@ -970,11 +1094,11 @@
 									// Error in secretToken handling - tell the webapp to do normal user management
 									sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
 								}
-							);
+								);
 						}
-					);
-				});
-			} catch (error) {
+						);
+});
+} catch (error) {
 				// Error in secretToken handling - tell the webapp to do normal user management
 				sendMessage(wsConnect, mJSO.callbackID, true, '', 'YES');
 			}
@@ -1005,43 +1129,43 @@
 						// @todo this string ('cant login ..') should be in message rather than data I'd say, since it is not machine-readable
 						sendMessage(wsConnect, mJSO.callbackID, true, '', 'Can\'t log on with given credentials');
 					}
-				);
+					);
 			},
 			function (reason) {
 				// There is no bundle list for the user -> reject them
 				sendMessage(wsConnect, mJSO.callbackID, true, '', 'BADUSERNAME');
 			}
+			);
+}
+
+function defaultHandlerGetGlobalDBConfig(mJSO, wsConnect) {
+	var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.dbName + '_DBconfig.json'));
+
+	readGlobalDBConfigFromDisk(dbConfigPath, wsConnect).then(
+		function (value) {
+			sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.dbConfig);
+		},
+		function (reason) {
+			sendMessage(wsConnect, mJSO.callbackID, false, reason);
+		}
 		);
-	}
+}
 
-	function defaultHandlerGetGlobalDBConfig(mJSO, wsConnect) {
-		var dbConfigPath = path.normalize(path.join(wsConnect.path2db, wsConnect.dbName + '_DBconfig.json'));
+function defaultHandlerGetBundleList(mJSO, wsConnect) {
+	sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.bndlList);
+}
 
-		readGlobalDBConfigFromDisk(dbConfigPath, wsConnect).then(
-			function (value) {
-				sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.dbConfig);
-			},
-			function (reason) {
-				sendMessage(wsConnect, mJSO.callbackID, false, reason);
-			}
-		);
-	}
-
-	function defaultHandlerGetBundleList(mJSO, wsConnect) {
-		sendMessage(wsConnect, mJSO.callbackID, true, '', wsConnect.bndlList);
-	}
-
-	function defaultHandlerGetBundle(mJSO, wsConnect) {
-		log.info('GETBUNDLE session: ' + mJSO.session + '; GETBUNDLE name: ' + mJSO.name,
-			'; clientID:', wsConnect.connectionID,
-			'; clientIP:', wsConnect._socket.remoteAddress);
+function defaultHandlerGetBundle(mJSO, wsConnect) {
+	log.info('GETBUNDLE session: ' + mJSO.session + '; GETBUNDLE name: ' + mJSO.name,
+		'; clientID:', wsConnect.connectionID,
+		'; clientIP:', wsConnect._socket.remoteAddress);
 
 		// User input is escaped via path.normalize(); this way, ".." cannot
 		// be used to break out of the directory set by cfg.path2emuDBs
 		var sessionPath = path.join(
 			wsConnect.path2db,
 			path.normalize(mJSO.session + '_ses')
-		);
+			);
 		var bundleName = path.normalize(mJSO.name);
 
 		// Read bundle from disk and send it back to the client
@@ -1054,7 +1178,7 @@
 				// @todo Does anybody depend on this behaviour?
 				sendMessage(wsConnect, mJSO.callbackID, false, 'Error reading bundle components');
 			}
-		);
+			);
 	}
 
 	function defaultHandlerSaveBundle(mJSO, wsConnect) {
@@ -1067,7 +1191,7 @@
 		var sessionPath = path.join(
 			wsConnect.path2db,
 			path.normalize(mJSO.data.session + '_ses')
-		);
+			);
 		var bundleName = path.normalize(mJSO.data.annotation.name);
 
 		writeBundleToDisk(sessionPath, bundleName, mJSO.data, wsConnect).then(
@@ -1077,7 +1201,7 @@
 			function (reason) {
 				sendMessage(wsConnect, mJSO.callbackID, false, reason);
 			}
-		)
+			)
 	}
 
 	function defaultHandlerDisconnectWarning(mJSO, wsConnect) {
@@ -1132,7 +1256,7 @@
 			'; clientID:', wsConnect.connectionID,
 			'; clientIP:', wsConnect._socket.remoteAddress,
 			'; URL:', wsConnect.upgradeReq.url
-		);
+			);
 
 		// Has the user been authorised to use the database they requested?
 		wsConnect.authorised = false;
@@ -1181,20 +1305,20 @@
 					mJSO.type !== 'GETPROTOCOL'
 					&& mJSO.type !== 'LOGONUSER'
 					&& mJSO.type !== 'GETDOUSERMANAGEMENT'
-				) {
+					) {
 					sendMessage(wsConnect, mJSO.callbackID, false, 'Sent' +
 						' request type that is only allowed after logon!' +
 						' Request type was: ' + mJSO.type);
-					return;
-				}
+				return;
 			}
+		}
 
 
 			// Check whether mJSO.type is valid and call the respective handler
 			if (
 				wsConnect.messageHandlers.hasOwnProperty(mJSO.type)
 				&& typeof wsConnect.messageHandlers[mJSO.type] === 'function'
-			) {
+				) {
 				// Call the event handler but make sure we catch *all* errors
 				// try .. catch would not catch any errors the event handler
 				// throws asynchronously. That is why why we use domains.
@@ -1207,13 +1331,13 @@
 						'; database:', wsConnect.path2db,
 						'; clientIP:', wsConnect._socket.remoteAddress,
 						error
-					);
+						);
 
 					sendMessage(
 						wsConnect, mJSO.callbackID, false,
 						'Unknown error in server or a database plugin.' +
 						' Technical error message: ' + error.message
-					);
+						);
 
 					// @todo kill respective connection?
 
@@ -1227,5 +1351,5 @@
 					' type that is unknown to server! Request type was: ' + mJSO.type);
 			}
 		});
-	});
+});
 }());
