@@ -184,7 +184,6 @@
 
 				} else if (req.url === '/_DBconfig') {
 					validRequest = true;
-					console.log("DBconfig")
 					validRes = tv4.validate(JSON.parse(data), schemasData[1]);
 
 				} else {
