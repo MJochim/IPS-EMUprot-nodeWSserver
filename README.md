@@ -14,16 +14,35 @@ This server also implements a simple validation server to validate JSON files us
 
 ### curl
 
-`curl -H "Content-Type: applicationjson" --data-binary  @msajc003_annot.json http://localhost:9263/_annot`
+Validate \_annot.json file:
+
+`curl -H "Content-Type: applicationjson" --data-binary  @msajc003_annot.json https://webapp2.phonetik.uni-muenchen.de:17890/_annot`
+
+
+
+Validate \_DBconfig.json file:
+
+`curl -H "Content-Type: applicationjson" --data-binary  @ae_DBconfig.json https://webapp2.phonetik.uni-muenchen.de:17890/_DBconfig`
+
 
 ### RCurl
 
-`library('RCurl')`
+```r
+library('RCurl')
+library('jsonlite')
 
-`json_file = '/path/2/instanceOfAnnotationFile.json'`
-`json_data = fromJSON(paste(readLines(json_file), collapse=""))`
-`headers <- list('Accept' = 'application/json', 'Content-Type' = 'application/json')`
-`postForm("http://localhost:9263/_annot", .opts=list(postfields=paste(readLines(json_file), collapse=""), httpheader=headers))`
+# validate _annot.json
+json_file = '~/Desktop/emuR_demoData/ae_emuDB/0000_ses/msajc003_bndl/msajc003_annot.json'
+json_data = fromJSON(paste(readLines(json_file), collapse=""))
+headers <- list('Accept' = 'application/json', 'Content-Type' = 'application/json')
+postForm("https://webapp2.phonetik.uni-muenchen.de:17890/_annot", .opts=list(postfields=paste(readLines(json_file), collapse=""), httpheader=headers))
+
+# validate _DBconfig.json
+json_file = '~/Desktop/emuR_demoData/ae_emuDB/ae_DBconfig.json'
+json_data = fromJSON(paste(readLines(json_file), collapse=""))
+headers <- list('Accept' = 'application/json', 'Content-Type' = 'application/json')
+postForm("https://webapp2.phonetik.uni-muenchen.de:17890/_DBconfig", .opts=list(postfields=paste(readLines(json_file), collapse=""), httpheader=headers))
+```
 
 
 ## Main authors
